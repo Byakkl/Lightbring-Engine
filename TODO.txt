@@ -1,0 +1,25 @@
+This is a frequently updated file to track progress and plan changes
+
+INPROGRESS:
+2024-02-28
+- VULKAN: Implement vertex buffers
+
+TODO:
+- CLEANUP: Move Vulkan code out of engine.cpp and organize it into its own subdirectory within /src
+- CLEANUP: Move static file read methods out of engine.cpp and into a utilies.h in a /fileio subdirectory within /src
+- VULKAN: Implement texture loading
+
+
+DONE:
+2024-02-28
+- GIT: Create git repo and upload initial files
+2024-02-25 - 2024-02-27
+- VULKAN: Basic triangle rendering
+- VULKAN: Basic pipeline setup
+2024-02-23 - 2024-02-25
+- CMAKE/VSCODE: Resolve compiled project not connecting and hitting breakpoints
+- CMAKE: Compilation settings and library includes
+- VULKAN: Include library dependencies (GLFW, GLM)
+- VULKAN: Include Vulkan SDK
+- VSCODE: Intellisense setup (c_cpp_properites.json)
+- VSCODE: Build and debug setup (launch.json, tasks.json)
