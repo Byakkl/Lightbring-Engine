@@ -5,13 +5,14 @@ INPROGRESS:
 - VULKAN: Implement vertex buffers
 
 TODO:
-- CLEANUP: Move Vulkan code out of engine.cpp and organize it into its own subdirectory within /src
-- CLEANUP: Move static file read methods out of engine.cpp and into a utilies.h in a /fileio subdirectory within /src
 - VULKAN: Implement texture loading
 
 
 DONE:
 2024-02-28
+- CMAKE: Add new CMakeList files for new subdirectories and connect them to the top level CMakeList
+- CLEANUP: Move Vulkan code out of engine.cpp and organize it into its own subdirectory within /src
+- CLEANUP: Move static file read methods out of engine.cpp and into a utilies.h in a /fileio subdirectory within /src
 - GIT: Create git repo and upload initial files
 2024-02-25 - 2024-02-27
 - VULKAN: Basic triangle rendering
