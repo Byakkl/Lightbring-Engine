@@ -79,6 +79,8 @@ private:
     std::vector<VkFence> inFlightFences;
     //Stores the current frame index; used as an index into semaphores
     uint32_t currentFrame = 0;
+    //Stores flag to track if a resize has occurred
+    bool framebufferResized = false;
 
     /// @brief Initializes the window used to render to
     void initWindow();
@@ -127,6 +129,9 @@ private:
     /// @brief Creates an image view for each of the images within the swap chain
     void createImageViews();
     
+    /// @brief Regenerates the swap chain
+    void recreateSwapChain();
+
     /// @brief Creates the Vulkan swap chain 
     void createSwapChain();
     
@@ -183,6 +188,9 @@ private:
     
     /// @brief Top level clean up method called when the engine is shut down
     void cleanup();
+
+    /// @brief Clean up method for swap chain and related structures
+    void cleanupSwapChain();
     
     /// @brief Populates a debug messenger instance creation info structure
     /// @param createInfo 
@@ -202,4 +210,10 @@ private:
         VkDebugUtilsMessageTypeFlagsEXT,
         const VkDebugUtilsMessengerCallbackDataEXT*,
         void*);
+
+    /// @brief Callback used by GLFW when a resize occurs
+    /// @param  window
+    /// @param  width
+    /// @param  height
+    static void framebufferResizeCallback(GLFWwindow*, int, int);
 };

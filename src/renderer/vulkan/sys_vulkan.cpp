@@ -86,13 +86,15 @@ void VulkanRenderer::initWindow(){
         glfwInit();
         //Disable creation of OpenGL context
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        //Disable resizing of created window
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
         //Create a new window with resolution 800x600 and name Vulkan
         //4th parameter can specify a monitor to open on
         //5th parameter is relevant to OpenGL
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+        //Set a pointer to this instance of VulkanRenderer that can be used in the callback
+        glfwSetWindowUserPointer(window, this);
+        //Set a callback to be invoked by GLFW when the window is resized
+        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     }
 
 void VulkanRenderer::createInstance(){
@@ -634,6 +636,41 @@ void VulkanRenderer::createImageViews(){
     }
 }
 
+void VulkanRenderer::cleanupSwapChain(){
+    //Clean up the frame buffers
+    for(size_t i = 0; i < swapChainFramebuffers.size(); i++)
+        vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
+
+    //Clean up the image views
+    for(size_t i = 0; i < swapChainImageViews.size(); i++)
+        vkDestroyImageView(device, swapChainImageViews[i], nullptr);
+
+    vkDestroySwapchainKHR(device, swapChain, nullptr);
+}
+
+void VulkanRenderer::recreateSwapChain(){
+    //Pauses the render system while the window is minimized
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(window, &width, &height);
+    while(width == 0 || height == 0){
+        glfwGetFramebufferSize(window, &width, &height);
+        glfwWaitEvents();
+    }
+
+    //Ensure any commands using the device and swap chain are completed before manipulating the swap chain
+    vkDeviceWaitIdle(device);
+
+    //Clean up the existing swap chain
+    cleanupSwapChain();
+
+    //Regenerate the swap chain
+    createSwapChain();
+    //Regenerate the views of the swap chain images
+    createImageViews();
+    //Regenerate the buffers for the swap chain images
+    createFrameBuffers();
+}
+
 void VulkanRenderer::createSwapChain(){
     //Fetch the supported swap chain informatino from the physical device
     SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
@@ -976,15 +1013,22 @@ void VulkanRenderer::drawFrame(){
     //Wait for all fences provided, timeout effectively disabled via large value
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
-    //Reset the fences
-    vkResetFences(device, 1, &inFlightFences[currentFrame]);
-
     //TODO: This call should be after the generation of the submit info and the queue submissions are called. I'm not sure why the tutorial puts this call beforehand as it makes the semaphore redundant
     //TODO: This call could, and likely should, be moved to a thread and managed that way to prevent the blocking call from locking the main thread. Not an issue with simple triangles but complex models or scenes will cause problems
     //Fetch an image from the swap chain when it is done presentation
     //Blocking call; will wait until image is received or timeout is reached
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+    //If the results of attempting to acquire the next swap chain image fails due to the swap chain being out of date, regenerate the chain
+    if(result == VK_ERROR_OUT_OF_DATE_KHR){
+        recreateSwapChain();
+        return;
+    } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+        throw std::runtime_error("Failed to acquire swap chain image");
+
+    //Reset the fences
+    vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
     //Reset the command buffer
     //Second parameter is a "VkCommandBufferResetFlagBits" flag
@@ -1029,13 +1073,23 @@ void VulkanRenderer::drawFrame(){
     presentInfo.pResults = nullptr;
 
     //Queue the presentation of the frame
-    vkQueuePresentKHR(presentQueue, &presentInfo);
+    result = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+    if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized){
+        framebufferResized = false;
+        recreateSwapChain();
+    }
+    else if (result != VK_SUCCESS)
+        throw std::runtime_error("Failed to present swap chain image");
 
     //Advance to the next frame in the loop
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void VulkanRenderer::cleanup(){
+    //Clean up the swap chain and its dependent objects
+    cleanupSwapChain();
+
     //Clean up sync objects
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
         vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
@@ -1046,10 +1100,6 @@ void VulkanRenderer::cleanup(){
     //Clean up the command pool
     vkDestroyCommandPool(device, commandPool, nullptr);
 
-    //Clean up the framebuffers
-    for(auto framebuffer : swapChainFramebuffers)
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
-
     //Clean up the graphics pipeline
     vkDestroyPipeline(device, graphicsPipeline, nullptr);
 
@@ -1058,13 +1108,6 @@ void VulkanRenderer::cleanup(){
         
     //Clean up the render pass
     vkDestroyRenderPass(device, renderPass, nullptr);
-
-    //Clean up the image views
-    for(auto imageView : swapChainImageViews)
-        vkDestroyImageView(device, imageView, nullptr);
-
-    //Clean up the swap chain
-    vkDestroySwapchainKHR(device, swapChain, nullptr);
 
     //Clean up the logical device
     vkDestroyDevice(device, nullptr);
@@ -1131,3 +1174,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanRenderer::debugCallback(
         return VK_FALSE;
 }
 
+void VulkanRenderer::framebufferResizeCallback(GLFWwindow* window, int width, int height){
+    //Cast the pointer to the VulkanRenderer class
+    auto app = reinterpret_cast<VulkanRenderer*>(glfwGetWindowUserPointer(window));
+    //Set the framebufferResized flag so the VulkanRenderer instance can recreate the swap chain and buffers
+    app->framebufferResized = true;
+}
