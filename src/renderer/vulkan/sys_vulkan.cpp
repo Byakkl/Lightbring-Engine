@@ -15,10 +15,10 @@
 
 
 void VulkanRenderer::run(){
-        initWindow();
-        initVulkan();
-        mainLoop();
-        cleanup();
+    initWindow();
+    initVulkan();
+    mainLoop();
+    cleanup();
 }
 
 std::vector<const char*> VulkanRenderer::getRequiredExtensions(){
@@ -163,11 +163,16 @@ void VulkanRenderer::initVulkan(){
     createGraphicsPipeline();
     createFrameBuffers();
     createCommandPool();
-    createCommandBuffer();
+    createCommandBuffers();
     createSyncObjects();
 }
 
 void VulkanRenderer::createSyncObjects(){
+    //Resize the lists
+    imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
     //Define semaphore creation info; no further parameters
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -177,10 +182,13 @@ void VulkanRenderer::createSyncObjects(){
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    if(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphore) != VK_SUCCESS
-        || vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphore) != VK_SUCCESS
-        || vkCreateFence(device, &fenceInfo, nullptr, &inFlightFence) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create semaphores");
+    //Create the desired number of semaphores and fences
+    for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+        if(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS
+            || vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS
+            || vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
+            throw std::runtime_error("Failed to create semaphores");
+    }
 }
 
 void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex){
@@ -251,7 +259,10 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         throw std::runtime_error("Failed to record command buffer");
 }
 
-void VulkanRenderer::createCommandBuffer(){
+void VulkanRenderer::createCommandBuffers(){
+    //Resize the array to the target size
+    commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     //Set the command pool that this buffer will be a part of
@@ -260,9 +271,9 @@ void VulkanRenderer::createCommandBuffer(){
     //Primary; can be submit to a queue for execution but cannot be called from other command buffers
     //Secondary; cannot be submit to a queue but can be called from a primary command buffer
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
+    allocInfo.commandBufferCount = (uint32_t)commandBuffers.size();
 
-    if(vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS)
+    if(vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers");
 }
 
@@ -639,6 +650,12 @@ void VulkanRenderer::createSwapChain(){
     if(swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount)
         imageCount = swapChainSupport.capabilities.maxImageCount;
 
+    #ifdef DEBUG_SWAP_CHAIN_IMAGE_COUNT
+    std::cout << "Swap chain min image count: " << swapChainSupport.capabilities.minImageCount << std::endl;
+    std::cout << "Swap chain max image count: " << swapChainSupport.capabilities.maxImageCount << std::endl;
+    std::cout << "Swap chain assigned image count: " << imageCount << std::endl;
+    #endif
+
     VkSwapchainCreateInfoKHR createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     //Select the surface to bind the swap chain to
@@ -957,26 +974,29 @@ void VulkanRenderer::mainLoop(){
 
 void VulkanRenderer::drawFrame(){
     //Wait for all fences provided, timeout effectively disabled via large value
-    vkWaitForFences(device, 1, &inFlightFence, VK_TRUE, UINT64_MAX);
+    vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
     //Reset the fences
-    vkResetFences(device, 1, &inFlightFence);
+    vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
+    //TODO: This call should be after the generation of the submit info and the queue submissions are called. I'm not sure why the tutorial puts this call beforehand as it makes the semaphore redundant
+    //TODO: This call could, and likely should, be moved to a thread and managed that way to prevent the blocking call from locking the main thread. Not an issue with simple triangles but complex models or scenes will cause problems
     //Fetch an image from the swap chain when it is done presentation
+    //Blocking call; will wait until image is received or timeout is reached
     uint32_t imageIndex;
-    vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    vkAcquireNextImageKHR(device, swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
     //Reset the command buffer
     //Second parameter is a "VkCommandBufferResetFlagBits" flag
-    vkResetCommandBuffer(commandBuffer, 0);
+    vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 
     //Record the command buffer targetting the image we received from the swap chain
-    recordCommandBuffer(commandBuffer, imageIndex);
+    recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore waitSemaphores[] = {imageAvailableSemaphore};
+    VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
     //Specify which sempahores to wait on before execution begins
@@ -985,14 +1005,14 @@ void VulkanRenderer::drawFrame(){
     submitInfo.pWaitDstStageMask = waitStages;
     //Specify which command bufferst to submit for execution
     submitInfo.commandBufferCount =1;
-    submitInfo.pCommandBuffers = &commandBuffer;
+    submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
     //Specify which semaphores to signal once command buffers have finished execution
-    VkSemaphore signalSemaphores[] = {renderFinishedSemaphore};
+    VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
     //Submit the command buffer to the graphics queue and indicate a fence to be signaled when the buffers finish execution
-    if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFence) != VK_SUCCESS)
+    if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, inFlightFences[currentFrame]) != VK_SUCCESS)
         throw std::runtime_error("Failed to submit draw command buffer");
 
     VkPresentInfoKHR presentInfo{};
@@ -1008,14 +1028,20 @@ void VulkanRenderer::drawFrame(){
     //Allows specification of an array of VkResult valuese to check for if presentation was successful on every individual swap chain
     presentInfo.pResults = nullptr;
 
+    //Queue the presentation of the frame
     vkQueuePresentKHR(presentQueue, &presentInfo);
+
+    //Advance to the next frame in the loop
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void VulkanRenderer::cleanup(){
     //Clean up sync objects
-    vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
-    vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
-    vkDestroyFence(device, inFlightFence, nullptr);
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+        vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
+        vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
+        vkDestroyFence(device, inFlightFences[i], nullptr);
+    }
 
     //Clean up the command pool
     vkDestroyCommandPool(device, commandPool, nullptr);

@@ -10,6 +10,8 @@ public:
     void run();
 
 private:
+    //Constant to define concurrent frame processing
+    const int MAX_FRAMES_IN_FLIGHT = 2;
     //Constants for window width and height
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
@@ -67,14 +69,16 @@ private:
     std::vector<VkFramebuffer> swapChainFramebuffers;
     //Stores the command pool that contains the command buffers
     VkCommandPool commandPool;
-    //Stores the command buffer; automatically freed when its command pool is destroyed
-    VkCommandBuffer commandBuffer;
-    //Stores the semaphore object to when when an image in the swap chain is available for rendering
-    VkSemaphore imageAvailableSemaphore;
-    //Stores the semaphore object to signal when rendering is complete and presentation can happen
-    VkSemaphore renderFinishedSemaphore;
-    //Stores the fence object to ensure only one frame is being rendered at a time
-    VkFence inFlightFence;
+    //Stores the command buffers; automatically freed when its command pool is destroyed
+    std::vector<VkCommandBuffer> commandBuffers;
+    //Stores the semaphore objects to when when an image in the swap chain is available for rendering
+    std::vector<VkSemaphore> imageAvailableSemaphores;
+    //Stores the semaphore objects to signal when rendering is complete and presentation can happen
+    std::vector<VkSemaphore> renderFinishedSemaphores;
+    //Stores the fence objects to signal when presentation is complete
+    std::vector<VkFence> inFlightFences;
+    //Stores the current frame index; used as an index into semaphores
+    uint32_t currentFrame = 0;
 
     /// @brief Initializes the window used to render to
     void initWindow();
@@ -100,8 +104,8 @@ private:
     /// @param imageIndex 
     void recordCommandBuffer(VkCommandBuffer, uint32_t);
     
-    /// @brief Creates a command buffer
-    void createCommandBuffer();
+    /// @brief Creates the command buffers
+    void createCommandBuffers();
     
     /// @brief Creates the command pool that the command buffers will be created out of
     void createCommandPool();

@@ -6,3 +6,6 @@
 
 //Logs the capacity of the vectors containing the loaded shaders
 //#define DEBUG_SHADER_FILE_LENGTH_ON_READ
+
+//Logs the swap chain image count
+//#define DEBUG_SWAP_CHAIN_IMAGE_COUNT
