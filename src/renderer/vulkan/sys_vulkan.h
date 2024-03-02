@@ -81,6 +81,10 @@ private:
     uint32_t currentFrame = 0;
     //Stores flag to track if a resize has occurred
     bool framebufferResized = false;
+    //Stores a data buffer for vertex data
+    VkBuffer vertexBuffer;
+    //Stores the handle to the vertex buffer's device memory 
+    VkDeviceMemory vertexBufferMemory;
 
     /// @brief Initializes the window used to render to
     void initWindow();
@@ -140,6 +144,15 @@ private:
     
     /// @brief Creates the logical device and queues to be used by Vulkan
     void createLogicalDevice();
+
+    /// @brief Creates a vertex buffer for use in shaders
+    void createVertexBuffer();
+
+    /// @brief Finds the correct type of memory on the GPU for the given parameters
+    /// @param  typeFilter specifies the bit field of suitable memory types
+    /// @param  properties 
+    /// @return 
+    uint32_t findMemoryType(uint32_t, VkMemoryPropertyFlags);
     
     /// @brief 
     /// @param capabilities 

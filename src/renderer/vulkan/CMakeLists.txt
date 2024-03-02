@@ -3,7 +3,8 @@ set(RENDERER_VULKAN_SOURCES
     structs_vulkan.h
     sys_vulkan.h
     sys_vulkan.cpp
-    util_vulkan.h)
+    util_vulkan.h
+    structs_model.h)
 
 #Add the dependecies 
 add_subdirectory("G:/Coding Libraries/glfw-3.4" glfw)

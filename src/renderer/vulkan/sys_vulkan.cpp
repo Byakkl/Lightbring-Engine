@@ -12,6 +12,7 @@
 #include "sys_vulkan.h"
 #include "util_vulkan.h"
 #include "../../fileio/util_io.h"
+#include "structs_model.h"
 
 
 void VulkanRenderer::run(){
@@ -165,6 +166,7 @@ void VulkanRenderer::initVulkan(){
     createGraphicsPipeline();
     createFrameBuffers();
     createCommandPool();
+    createVertexBuffer();
     createCommandBuffers();
     createSyncObjects();
 }
@@ -247,12 +249,17 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     //Set the scissor
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    //Bind the vertex buffer to the shader bindings
+    VkBuffer vertexBuffers[] = {vertexBuffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
     //Draw
     //Second parameter is the vertex count
     //Third parameter is instance count used for instanced rendering
     //Fourth parameter is vertex buffer offset; defines lowest value of gl_VertexIndex
     //Fight parameter is instance offset for instanced rendering; defines lowest value of gl_InstanceIndex
-    vkCmdDraw(commandBuffer, 3, 1 ,0 ,0);
+    vkCmdDraw(commandBuffer, static_cast<uint32_t>(triangleVerts.size()), 1 ,0 ,0);
 
     //End the render pass
     vkCmdEndRenderPass(commandBuffer);
@@ -458,15 +465,18 @@ void VulkanRenderer::createGraphicsPipeline(){
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
     //Informs the graphics pipeline the format of the vertex data that is passed to the vertex shader
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     //Spacing between data and if it's per-vertex or per-instance
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr;
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
     //Type of the attributes, which binding to load them from and at which offset
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     //Informs the graphics pipline of what kind of geometry will be drawn from the vertices
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
@@ -819,6 +829,61 @@ void VulkanRenderer::createLogicalDevice(){
     vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
 }
 
+void VulkanRenderer::createVertexBuffer(){
+    //Generate the data buffer creation info
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    //Size of the buffer in bytes
+    bufferInfo.size = sizeof(triangleVerts[0]) * triangleVerts.size();
+    //Specify flags that represent the purpose of the data buffer
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    //Specify if the buffer can be shared between queue families
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    //Create the data buffer handle
+    if(vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create vertex buffer");
+
+    //Fetch the memory requirements for the buffer
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
+
+    //Generate the data buffer memory allocation info
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, 
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT 
+        | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    //Allocate the memory
+    if(vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate vertex buffer memory");
+
+    //Bind the buffer memory handle to the data buffer handle
+    vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+
+    void* data;
+    //Map the buffer memory into CPU accessible memory
+    vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+    //Copy the vertex data into the buffer
+    memcpy(data, triangleVerts.data(), (size_t) bufferInfo.size);
+    //Unmap the memory as we no longer need access
+    vkUnmapMemory(device, vertexBufferMemory);
+}
+
+uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties){
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+    //Iterate through the list of memory types to find one that matches both the filter and the desired properties
+    for(uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+        if(typeFilter & (1 << i) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+            return i;
+
+    throw std::runtime_error("Failed to find suitable memory type");
+}
+
 VkExtent2D VulkanRenderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities){
     //If the current extents are already defined, leave them
     if(capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
@@ -1089,6 +1154,12 @@ void VulkanRenderer::drawFrame(){
 void VulkanRenderer::cleanup(){
     //Clean up the swap chain and its dependent objects
     cleanupSwapChain();
+
+    //Clean up the vertex buffer
+    vkDestroyBuffer(device, vertexBuffer, nullptr);
+
+    //Release the vertex buffer memory
+    vkFreeMemory(device, vertexBufferMemory, nullptr);
 
     //Clean up sync objects
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
