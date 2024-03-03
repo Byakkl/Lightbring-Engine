@@ -49,6 +49,8 @@ private:
     VkSurfaceKHR surface;
     //Stores a handle to the Vulkan presentation queue; this is implicitly cleaned up alongside the device it's associated with
     VkQueue presentQueue;
+    //Stores a handle the transfer queue; this is implicitly cleaned up alongside the device it's associated with
+    VkQueue transferQueue;
     //Stores the Vulkan swap chain object
     VkSwapchainKHR swapChain;
     //Stores a list of handles for each of the swap chain images
@@ -67,8 +69,10 @@ private:
     VkPipeline graphicsPipeline;
     //Stores the swap chain frame buffers
     std::vector<VkFramebuffer> swapChainFramebuffers;
-    //Stores the command pool that contains the command buffers
-    VkCommandPool commandPool;
+    //Stores the command pool that contains the command buffers for the family supporting the GRAPHICS type
+    VkCommandPool graphicsCommandPool;
+    //Stores the command pool that contains the command buffers for the family supporting the TRANSFER type
+    VkCommandPool transferCommandPool;
     //Stores the command buffers; automatically freed when its command pool is destroyed
     std::vector<VkCommandBuffer> commandBuffers;
     //Stores the semaphore objects to when when an image in the swap chain is available for rendering
@@ -85,6 +89,8 @@ private:
     VkBuffer vertexBuffer;
     //Stores the handle to the vertex buffer's device memory 
     VkDeviceMemory vertexBufferMemory;
+    //Stores a list of all of the queue family sets in use
+    std::vector<QueueFamilyIndices> queueFamilies;
 
     /// @brief Initializes the window used to render to
     void initWindow();
@@ -111,10 +117,13 @@ private:
     void recordCommandBuffer(VkCommandBuffer, uint32_t);
     
     /// @brief Creates the command buffers
-    void createCommandBuffers();
+    /// @param pCommandPool Pointer to the command pool the buffer will be created on
+    void createCommandBuffers(VkCommandPool*);
     
     /// @brief Creates the command pool that the command buffers will be created out of
-    void createCommandPool();
+    /// @param pCommandPool Pointer to the command pool variable to be populated
+    /// @param familyIndices Container for the indices of the queue family
+    void createCommandPool(VkCommandPool*, QueueFamilyIndices);
     
     /// @brief Create the framebuffers for the swap chain images
     void createFrameBuffers();
@@ -148,6 +157,11 @@ private:
     /// @brief Creates a vertex buffer for use in shaders
     void createVertexBuffer();
 
+    /// @brief Requests all desired queue families from the physical device
+    /// @param physicalDevice The physical device to request the queue families from
+    /// @return Returns true if all requested queue families are found
+    bool requestQueueFamilies(VkPhysicalDevice);
+
     /// @brief Finds the correct type of memory on the GPU for the given parameters
     /// @param  typeFilter specifies the bit field of suitable memory types
     /// @param  properties 
@@ -175,10 +189,13 @@ private:
     SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice);
     
     /// @brief Attempts to find a queue family matching desired hard coded search criteria
-    ///  On success the QueueFamilyIndices "graphicsFamily" property is assigned to the index of the queue family of the device that matches the criteria
-    /// @param  
-    /// @return 
-    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice);
+    /// @param device The physical device to be searched on
+    /// @param queueFamilyFlags The flags that are required of a family for a successful search
+    /// @param exclusionFlags The flags that are required to not be present in the queue
+    /// @param presentationSupport Should the queue family support presentation
+    /// @param pOutput Pointer to the structure to contain the family indices
+    /// @return Returns true if a family matching the requirements was found
+    bool findQueueFamilies(VkPhysicalDevice, VkQueueFlags, bool, QueueFamilyIndices*, VkQueueFlags = 0);
     
     /// @brief 
     /// @param  

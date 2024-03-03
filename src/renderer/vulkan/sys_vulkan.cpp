@@ -165,9 +165,10 @@ void VulkanRenderer::initVulkan(){
     createRenderPass();
     createGraphicsPipeline();
     createFrameBuffers();
-    createCommandPool();
+    createCommandPool(&graphicsCommandPool, queueFamilies[0]);
+    createCommandPool(&transferCommandPool, queueFamilies[1]);
     createVertexBuffer();
-    createCommandBuffers();
+    createCommandBuffers(&graphicsCommandPool);
     createSyncObjects();
 }
 
@@ -268,14 +269,14 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         throw std::runtime_error("Failed to record command buffer");
 }
 
-void VulkanRenderer::createCommandBuffers(){
+void VulkanRenderer::createCommandBuffers(VkCommandPool* pCommandPool){
     //Resize the array to the target size
     commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     //Set the command pool that this buffer will be a part of
-    allocInfo.commandPool = commandPool;
+    allocInfo.commandPool = *pCommandPool;
     //Specifies if command buffer is primary or secondary
     //Primary; can be submit to a queue for execution but cannot be called from other command buffers
     //Secondary; cannot be submit to a queue but can be called from a primary command buffer
@@ -286,16 +287,14 @@ void VulkanRenderer::createCommandBuffers(){
         throw std::runtime_error("Failed to allocate command buffers");
 }
 
-void VulkanRenderer::createCommandPool(){
-    QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
-
+void VulkanRenderer::createCommandPool(VkCommandPool* pCommandPool, QueueFamilyIndices familyIndices){
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     //Associate this command pool with the graphics queue family as this command pool will be used for drawing
-    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+    poolInfo.queueFamilyIndex = familyIndices.queueFamily.value();
 
-    if(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
+    if(vkCreateCommandPool(device, &poolInfo, nullptr, pCommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create command pool");
 }
 
@@ -718,12 +717,12 @@ void VulkanRenderer::createSwapChain(){
     //Post processing would use a bit such as VK_IMAGE_USAGE_TRANSFER_DST_BIT to render to a seperate image first before transfering it to a swap chain image
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    //Fetch the queue family indices
-    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
-    uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+    //Get the GRAPHICS queue family's indices
+    QueueFamilyIndices indices = queueFamilies[0];
+    uint32_t queueFamilyIndices[] = {indices.queueFamily.value(), indices.presentFamily.value()};
 
     //If the queue families are not the same then define the image sharing as concurrent. Exclusive is more performant but requires a transfer of ownership each time
-    if(indices.graphicsFamily != indices.presentFamily){
+    if(indices.queueFamily != indices.presentFamily){
         //Set image sharing to concurrent mode
         createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         //Set the number of queue families to be sharing the swap chain images
@@ -776,13 +775,24 @@ void VulkanRenderer::createSurface(){
 }
 
 void VulkanRenderer::createLogicalDevice(){
-    //Find a queue family on the physical device
-    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
-
     //Create a list of all desired queue family creations
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
     //Using a set allows duplicates to be skipped in the case that a single family supports both desired types; this is a performance optimization
-    std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
+    std::set<uint32_t> uniqueQueueFamilies;
+
+    //Reusable reference container for queue family indices
+    QueueFamilyIndices indices;
+
+    //Get the GRAPHICS queue family
+    indices = queueFamilies[0];
+    //Set the indices
+    uniqueQueueFamilies.insert(indices.queueFamily.value());
+    uniqueQueueFamilies.insert(indices.presentFamily.value());
+
+    //Get the TRANSFER queue family
+    indices = queueFamilies[1];
+    uniqueQueueFamilies.insert(indices.queueFamily.value());
+
     //Set the queue priority to 1.0; float range is 0.0 to 1.0
     float queuePriority = 1.0f;
 
@@ -825,11 +835,19 @@ void VulkanRenderer::createLogicalDevice(){
 
     //Fetch and store the reference to the newly created graphics queues
     //We are only creating a single queue in these families so the indices can be hard coded to 0 for the time being
-    vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
-    vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
+    vkGetDeviceQueue(device, queueFamilies[0].queueFamily.value(), 0, &graphicsQueue);
+    vkGetDeviceQueue(device, queueFamilies[0].presentFamily.value(), 0, &presentQueue);
+    vkGetDeviceQueue(device, queueFamilies[1].queueFamily.value(), 0, &transferQueue);
 }
 
 void VulkanRenderer::createVertexBuffer(){
+    //Store the array of queue familiy indices used by the vertex buffer
+    std::array<uint32_t, 2> queueIndices;
+    
+    //Populate the array with the GRAPHICS and TRANSFER queue family indices
+    queueIndices[0] = queueFamilies[0].queueFamily.value();
+    queueIndices[1] = queueFamilies[1].queueFamily.value();
+
     //Generate the data buffer creation info
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -838,7 +856,11 @@ void VulkanRenderer::createVertexBuffer(){
     //Specify flags that represent the purpose of the data buffer
     bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     //Specify if the buffer can be shared between queue families
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    //Currently we are looking for two queue families, TRANSFER and GRAPHICS, these may or may not be the same
+    bufferInfo.sharingMode = queueIndices[0] != queueIndices[1] ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+
+    bufferInfo.queueFamilyIndexCount = queueIndices.size();
+    bufferInfo.pQueueFamilyIndices = std::data(queueIndices);
 
     //Create the data buffer handle
     if(vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS)
@@ -956,8 +978,9 @@ SwapChainSupportDetails VulkanRenderer::querySwapChainSupport(VkPhysicalDevice d
     return details;
 }
 
-QueueFamilyIndices VulkanRenderer::findQueueFamilies(VkPhysicalDevice device){
-    QueueFamilyIndices indices;
+bool VulkanRenderer::findQueueFamilies(VkPhysicalDevice device, VkQueueFlags queueFamilyFlags, bool presentationSupport, QueueFamilyIndices* pOutput, VkQueueFlags exclusionFlags){
+    //Clear any existing data
+    pOutput->reset(presentationSupport);
 
     //Fetch the queue family count
     uint32_t queueFamilyCount = 0;
@@ -967,24 +990,31 @@ QueueFamilyIndices VulkanRenderer::findQueueFamilies(VkPhysicalDevice device){
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-    //Search the queue families for at least one that supports the VK_QUEUE_GRAPHHICS_BIT and store its index
-    //The index stored will the that of the last family in the list that supports the target flag
+    //Search the queue families for at least one that supports the desired queue flags and store its index
+    //The index stored will the that of the first family in the list that supports the target flags
     int i = 0;
     VkBool32 presentSupport = false;
+    bool familyFound = false;
     for(const auto& queueFamily  : queueFamilies){
         //Graphics queue family check
-        if(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT){
-            indices.graphicsFamily = i;
+        if((queueFamily.queueFlags & queueFamilyFlags) && !(queueFamily.queueFlags & exclusionFlags) ){
+            pOutput->queueFamily = i;
+            familyFound = true;
         }
-        //Presentation queue family check
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
-        if(presentSupport)
-            indices.presentFamily = i;
-
+        if(presentationSupport){
+            //Presentation queue family check
+            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+            if(presentSupport)
+                pOutput->presentFamily = i;
+            else
+                familyFound = false;
+        }
+        if(familyFound)
+            break;
         i++;
     }
 
-    return indices;
+    return familyFound;
 }
 
 bool VulkanRenderer::checkDeviceExtensionSupport(VkPhysicalDevice device){
@@ -1017,7 +1047,8 @@ bool VulkanRenderer::isDeviceSuitable(VkPhysicalDevice device){
     vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
     //Check if the device has the desired queue families
-    QueueFamilyIndices indices = findQueueFamilies(device);
+    if(!requestQueueFamilies(device))
+        return false;
 
     //Check if the device supports the desired extensions
     bool extensionsSupported = checkDeviceExtensionSupport(device);
@@ -1029,8 +1060,8 @@ bool VulkanRenderer::isDeviceSuitable(VkPhysicalDevice device){
         swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
     }
 
-    //Only return a valid device if it has the desired queue familiy support and swap chain support
-    return indices.isComplete() && extensionsSupported && swapChainAdequate;
+    //Only return a valid device if it has the desired queue family support and swap chain support
+    return extensionsSupported && swapChainAdequate;
 
     //EXAMPLE QUERY: Return true if the device is a discreate GPU with support for geometry shaders
     //return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
@@ -1168,8 +1199,9 @@ void VulkanRenderer::cleanup(){
         vkDestroyFence(device, inFlightFences[i], nullptr);
     }
 
-    //Clean up the command pool
-    vkDestroyCommandPool(device, commandPool, nullptr);
+    //Clean up the command pools
+    vkDestroyCommandPool(device, graphicsCommandPool, nullptr);
+    vkDestroyCommandPool(device, transferCommandPool, nullptr);
 
     //Clean up the graphics pipeline
     vkDestroyPipeline(device, graphicsPipeline, nullptr);
@@ -1198,6 +1230,26 @@ void VulkanRenderer::cleanup(){
         
     //Clean up GLFW
     glfwTerminate();
+}
+
+bool VulkanRenderer::requestQueueFamilies(VkPhysicalDevice physicalDevice){
+    //Clear the list of any existing values
+    queueFamilies.clear();
+
+    //Container for finding queue families
+    QueueFamilyIndices indices;
+
+    //Find a GRAPHICS queue family that supports presentation
+    if(!findQueueFamilies(physicalDevice, VK_QUEUE_GRAPHICS_BIT, true, &indices))
+        return false;
+    queueFamilies.push_back(indices);
+
+    //Find a TRANSFER queue family that does not include the GRAPHICS flag and does not support presentation
+    if(!findQueueFamilies(physicalDevice, VK_QUEUE_TRANSFER_BIT, false, &indices, VK_QUEUE_GRAPHICS_BIT))
+        return false;
+    queueFamilies.push_back(indices);
+
+    return true;
 }
 
 void VulkanRenderer::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo){

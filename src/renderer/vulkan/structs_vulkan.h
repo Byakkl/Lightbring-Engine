@@ -13,14 +13,24 @@ struct SwapChainSupportDetails{
 
 //Container for a set of queue family indices on a device
 struct QueueFamilyIndices{
-    //Index of a given graphics queue family
-    std::optional<uint32_t> graphicsFamily;
+    //Index of a given queue family
+    std::optional<uint32_t> queueFamily;
     //Index of a given presentation queue family
     std::optional<uint32_t> presentFamily;
+    //Determines if the presentation queue family is required for completion to be considered
+    bool requiresPresentFamily = false;
     
-    /// @brief Returns true if graphicsFamily has been assigned an index value
+    /// @brief Returns true if queueFamily has been assigned an index value
     /// @return 
     bool isComplete(){
-        return graphicsFamily.has_value() && presentFamily.has_value();
+        return queueFamily.has_value() && (requiresPresentFamily ? presentFamily.has_value() : true);
+    }
+
+    /// @brief Reset method to allow a structure instance to be reused
+    /// @param presentationRequired Sets the initial state of the presentation requirement. Defaults to false if no state provided
+    void reset(bool presentationRequired = false){
+        queueFamily.reset();
+        presentFamily.reset();
+        requiresPresentFamily = presentationRequired;
     }
 };
