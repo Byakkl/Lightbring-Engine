@@ -2,7 +2,7 @@ This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
 2024-03-03
-- VULKAN: Implement index buffer
+- VULKAN: Implement uniform buffer
 
 TODO:
 - VULKAN: Implement texture loading
@@ -13,9 +13,14 @@ TODO:
 - VULKAN: Revisit copyBuffer method to assign fences to allow simultaneous transfer calls
 - VULKAN: Change the call to vkAllocateMemory in createBuffer to a custom allocator that utilizes the offset parameters to allow for numerous simultaneous allocations. 
     https://vulkan-tutorial.com/en/Vertex_buffers/Staging_buffer#:~:text=more%20complex%20geometry.-,Conclusion,-It%20should%20be
+- VULKAN: Create command pool with the flag VK_COMMAND_POOL_TRANSIENT_BIT for short lived commands such as the staging buffer used in copyBuffer
+- VULKAN: Look into combining vertex and index buffers using the offset parameters to better manage vkAllocateMemory
+- VULKAN: Look into combining multiple memory allocation calls into a single invocation by pre-processing available data (Not relevant with simple data at the moment)
+- VULKAN: Look into aliasing large buffers and the various functions/flags that support this
 
 DONE:
 2024-03-03 - 2024-03-03
+- VULKAN: Implement index buffer
 - VULKAN: Implement staging buffer for CPU to GPU buffer data transfer
 - VULKAN: Update queue family search method to be generic
 2024-02-28 - 2024-03-02

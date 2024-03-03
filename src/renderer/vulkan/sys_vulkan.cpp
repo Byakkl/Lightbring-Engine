@@ -168,6 +168,7 @@ void VulkanRenderer::initVulkan(){
     createCommandPool(graphicsCommandPool, queueFamilies[0]);
     createCommandPool(transferCommandPool, queueFamilies[1]);
     createVertexBuffer();
+    createIndexBuffer();
     createCommandBuffers(graphicsCommandPool, graphicsCommandBuffers);
     createCommandBuffers(transferCommandPool, transferCommandBuffers);
     createSyncObjects();
@@ -256,12 +257,16 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
+    //Bind the index buffer to the shader bindings
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
     //Draw
-    //Second parameter is the vertex count
+    //Second parameter is the index count
     //Third parameter is instance count used for instanced rendering
     //Fourth parameter is vertex buffer offset; defines lowest value of gl_VertexIndex
-    //Fight parameter is instance offset for instanced rendering; defines lowest value of gl_InstanceIndex
-    vkCmdDraw(commandBuffer, static_cast<uint32_t>(triangleVerts.size()), 1 ,0 ,0);
+    //Fifth parameter is index buffer offset
+    //Sixth parameter is instance offset for instanced rendering; defines lowest value of gl_InstanceIndex
+    vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(hardcodedIndices.size()), 1 ,0 ,0, 0);
 
     //End the render pass
     vkCmdEndRenderPass(commandBuffer);
@@ -887,7 +892,7 @@ void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, V
 
 void VulkanRenderer::createVertexBuffer(){
     //Determine the size of the buffer
-    VkDeviceSize bufferSize = sizeof(triangleVerts[0]) * triangleVerts.size();
+    VkDeviceSize bufferSize = sizeof(hardcodedVerts[0]) * hardcodedVerts.size();
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -902,7 +907,7 @@ void VulkanRenderer::createVertexBuffer(){
     //Map the buffer memory into CPU accessible memory
     vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
     //Copy the vertex data into the buffer
-    memcpy(data, triangleVerts.data(), (size_t) bufferSize);
+    memcpy(data, hardcodedVerts.data(), (size_t) bufferSize);
     //Unmap the memory as we no longer need access
     vkUnmapMemory(device, stagingBufferMemory);
 
@@ -915,6 +920,43 @@ void VulkanRenderer::createVertexBuffer(){
 
     //Copy the staging buffer into the vertex buffer
     copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+    //Clean up the staging buffer and its memory
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
+}
+
+void VulkanRenderer::createIndexBuffer(){
+    //Determine the size of the buffer
+    VkDeviceSize bufferSize = sizeof(hardcodedIndices[0]) * hardcodedIndices.size();
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+
+    //Create the staging buffer
+    createBuffer(bufferSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBuffer,
+        stagingBufferMemory);
+
+    void* data;
+    //Map the memory of the staging buffer to the void pointer
+    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    //Copy the data into the buffer the pointer indicates
+    memcpy(data, hardcodedIndices.data(), (size_t) bufferSize);
+    //Unmap the staging buffer
+    vkUnmapMemory(device, stagingBufferMemory);
+
+    //Create the destination buffer on the device
+    createBuffer(bufferSize, 
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        indexBuffer,
+        indexBufferMemory);
+    
+    //Copy the memory from source to destination
+    copyBuffer(stagingBuffer, indexBuffer, bufferSize);
 
     //Clean up the staging buffer and its memory
     vkDestroyBuffer(device, stagingBuffer, nullptr);
@@ -1258,9 +1300,13 @@ void VulkanRenderer::cleanup(){
 
     //Clean up the vertex buffer
     vkDestroyBuffer(device, vertexBuffer, nullptr);
-
     //Release the vertex buffer memory
     vkFreeMemory(device, vertexBufferMemory, nullptr);
+
+    //Clean up the index buffer
+    vkDestroyBuffer(device, indexBuffer, nullptr);
+    //Release the index buffer memory
+    vkFreeMemory(device, indexBufferMemory, nullptr);
 
     //Clean up sync objects
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){

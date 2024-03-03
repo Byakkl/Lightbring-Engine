@@ -41,6 +41,8 @@ private:
     VkDebugUtilsMessengerEXT debugMessenger;
     //Stores the physical device to be targeted by Vulkan; this is implicitly destroyed alongside the instance
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+    //Stores a list of all of the queue family sets in use
+    std::vector<QueueFamilyIndices> queueFamilies;
     //Stores the logical device to be used by Vulkan
     VkDevice device;
     //Stores a handle to the Vulkan graphics queue; this is implicitly cleaned up algonside the device it's associated with
@@ -91,8 +93,10 @@ private:
     VkBuffer vertexBuffer;
     //Stores the handle to the vertex buffer's device memory 
     VkDeviceMemory vertexBufferMemory;
-    //Stores a list of all of the queue family sets in use
-    std::vector<QueueFamilyIndices> queueFamilies;
+    //Stores a data buffer for index data
+    VkBuffer indexBuffer;
+    //Stores the handle to the index buffer's device memory
+    VkDeviceMemory indexBufferMemory;
 
     /// @brief Initializes the window used to render to
     void initWindow();
@@ -167,6 +171,9 @@ private:
 
     /// @brief Creates a vertex buffer for use in shaders
     void createVertexBuffer();
+
+    /// @brief Creats an index buffer for use in shaders
+    void createIndexBuffer();
 
     /// @brief Copies data from one buffer to another
     /// @param srcBuffer Source data buffer
