@@ -73,8 +73,10 @@ private:
     VkCommandPool graphicsCommandPool;
     //Stores the command pool that contains the command buffers for the family supporting the TRANSFER type
     VkCommandPool transferCommandPool;
-    //Stores the command buffers; automatically freed when its command pool is destroyed
-    std::vector<VkCommandBuffer> commandBuffers;
+    //Stores the command buffers for the GRAPHICS command pool; automatically freed when its command pool is destroyed
+    std::vector<VkCommandBuffer> graphicsCommandBuffers;
+    //Stores the command buffers for the TRANSFER command pool; automatically freed when its command pool is destroyed
+    std::vector<VkCommandBuffer> transferCommandBuffers;
     //Stores the semaphore objects to when when an image in the swap chain is available for rendering
     std::vector<VkSemaphore> imageAvailableSemaphores;
     //Stores the semaphore objects to signal when rendering is complete and presentation can happen
@@ -117,11 +119,12 @@ private:
     void recordCommandBuffer(VkCommandBuffer, uint32_t);
     
     /// @brief Creates the command buffers
-    /// @param commandPool Pointer to the command pool the buffer will be created on
-    void createCommandBuffers(VkCommandPool&);
+    /// @param commandPool Reference to the command pool the buffer will be created on
+    /// @param commandBuffers Reference to the list of command buffers to populate
+    void createCommandBuffers(VkCommandPool&, std::vector<VkCommandBuffer>&);
     
     /// @brief Creates the command pool that the command buffers will be created out of
-    /// @param commandPool Pointer to the command pool variable to be populated
+    /// @param commandPool Reference to the command pool variable to be populated
     /// @param familyIndices Container for the indices of the queue family
     void createCommandPool(VkCommandPool&, QueueFamilyIndices);
     
@@ -154,8 +157,22 @@ private:
     /// @brief Creates the logical device and queues to be used by Vulkan
     void createLogicalDevice();
 
+    /// @brief Creates a memory buffer
+    /// @param size The size of the memory buffer in bytes
+    /// @param usage Informs Vulkan of the purpose of the buffer
+    /// @param properties Specifies the properties of the type of memory that should be assigned to the buffer
+    /// @param buffer Reference to output the buffer handle to
+    /// @param bufferMemory Reference to output the buffer memory handle to
+    void createBuffer(VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags, VkBuffer&, VkDeviceMemory&);
+
     /// @brief Creates a vertex buffer for use in shaders
     void createVertexBuffer();
+
+    /// @brief Copies data from one buffer to another
+    /// @param srcBuffer Source data buffer
+    /// @param dstBuffer Destination data buffer
+    /// @param size Size of the data to be transfered in bytes
+    void copyBuffer(VkBuffer, VkBuffer, VkDeviceSize);
 
     /// @brief Requests all desired queue families from the physical device
     /// @param physicalDevice The physical device to request the queue families from

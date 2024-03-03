@@ -168,7 +168,8 @@ void VulkanRenderer::initVulkan(){
     createCommandPool(graphicsCommandPool, queueFamilies[0]);
     createCommandPool(transferCommandPool, queueFamilies[1]);
     createVertexBuffer();
-    createCommandBuffers(graphicsCommandPool);
+    createCommandBuffers(graphicsCommandPool, graphicsCommandBuffers);
+    createCommandBuffers(transferCommandPool, transferCommandBuffers);
     createSyncObjects();
 }
 
@@ -269,7 +270,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         throw std::runtime_error("Failed to record command buffer");
 }
 
-void VulkanRenderer::createCommandBuffers(VkCommandPool& commandPool){
+void VulkanRenderer::createCommandBuffers(VkCommandPool& commandPool, std::vector<VkCommandBuffer>& commandBuffers){
     //Resize the array to the target size
     commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
@@ -840,7 +841,7 @@ void VulkanRenderer::createLogicalDevice(){
     vkGetDeviceQueue(device, queueFamilies[1].queueFamily.value(), 0, &transferQueue);
 }
 
-void VulkanRenderer::createVertexBuffer(){
+void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory){
     //Store the array of queue familiy indices used by the vertex buffer
     std::array<uint32_t, 2> queueIndices;
     
@@ -852,9 +853,9 @@ void VulkanRenderer::createVertexBuffer(){
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     //Size of the buffer in bytes
-    bufferInfo.size = sizeof(triangleVerts[0]) * triangleVerts.size();
+    bufferInfo.size = size;
     //Specify flags that represent the purpose of the data buffer
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.usage = usage;
     //Specify if the buffer can be shared between queue families
     //Currently we are looking for two queue families, TRANSFER and GRAPHICS, these may or may not be the same
     bufferInfo.sharingMode = queueIndices[0] != queueIndices[1] ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
@@ -863,35 +864,104 @@ void VulkanRenderer::createVertexBuffer(){
     bufferInfo.pQueueFamilyIndices = std::data(queueIndices);
 
     //Create the data buffer handle
-    if(vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS)
+    if(vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to create vertex buffer");
 
     //Fetch the memory requirements for the buffer
     VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
+    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
 
     //Generate the data buffer memory allocation info
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, 
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT 
-        | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
     //Allocate the memory
-    if(vkAllocateMemory(device, &allocInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS)
+    if(vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate vertex buffer memory");
 
     //Bind the buffer memory handle to the data buffer handle
-    vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+    vkBindBufferMemory(device, buffer, bufferMemory, 0);
+}
+
+void VulkanRenderer::createVertexBuffer(){
+    //Determine the size of the buffer
+    VkDeviceSize bufferSize = sizeof(triangleVerts[0]) * triangleVerts.size();
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    //Create a buffer for the vertex data to staged in
+    createBuffer(bufferSize, 
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+        stagingBuffer,
+        stagingBufferMemory);
 
     void* data;
     //Map the buffer memory into CPU accessible memory
-    vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
     //Copy the vertex data into the buffer
-    memcpy(data, triangleVerts.data(), (size_t) bufferInfo.size);
+    memcpy(data, triangleVerts.data(), (size_t) bufferSize);
     //Unmap the memory as we no longer need access
-    vkUnmapMemory(device, vertexBufferMemory);
+    vkUnmapMemory(device, stagingBufferMemory);
+
+    //Create the buffer for the vertex data to exist locally on the device
+    createBuffer(bufferSize, 
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        vertexBuffer,
+        vertexBufferMemory);
+
+    //Copy the staging buffer into the vertex buffer
+    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+    //Clean up the staging buffer and its memory
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
+}
+
+void VulkanRenderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size){
+    //Create the command buffer allocation info
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = transferCommandPool;
+    allocInfo.commandBufferCount = 1;
+
+    //Create the command buffer
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+    //Populate the command buffer with a Begin command
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    //Populate the command buffer with a CopyBuffer command
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+    //Populate the command buffer with an End command
+    vkEndCommandBuffer(commandBuffer);
+
+    //Create the command buffer submition info
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    //Submit the command to the transfer queue
+    vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    //Wait for the queue to finish
+    vkQueueWaitIdle(transferQueue);
+
+    //Clean up the completed command
+    vkFreeCommandBuffers(device, transferCommandPool, 1, &commandBuffer);
 }
 
 uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties){
@@ -1128,10 +1198,10 @@ void VulkanRenderer::drawFrame(){
 
     //Reset the command buffer
     //Second parameter is a "VkCommandBufferResetFlagBits" flag
-    vkResetCommandBuffer(commandBuffers[currentFrame], 0);
+    vkResetCommandBuffer(graphicsCommandBuffers[currentFrame], 0);
 
     //Record the command buffer targetting the image we received from the swap chain
-    recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
+    recordCommandBuffer(graphicsCommandBuffers[currentFrame], imageIndex);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -1145,7 +1215,7 @@ void VulkanRenderer::drawFrame(){
     submitInfo.pWaitDstStageMask = waitStages;
     //Specify which command bufferst to submit for execution
     submitInfo.commandBufferCount =1;
-    submitInfo.pCommandBuffers = &commandBuffers[currentFrame];
+    submitInfo.pCommandBuffers = &graphicsCommandBuffers[currentFrame];
     //Specify which semaphores to signal once command buffers have finished execution
     VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
     submitInfo.signalSemaphoreCount = 1;
