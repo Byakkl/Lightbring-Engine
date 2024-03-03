@@ -1,14 +1,16 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
-2024-02-28
-- VULKAN: Implement vertex buffers
+- VULKAN: Update queue family search method to be generic
+- VULKAN: Implement staging buffer for CPU to GPU buffer data transfer
 
 TODO:
 - VULKAN: Implement texture loading
-
+- VULKAN: Implement OBJ model imports
 
 DONE:
+2024-02-28 - 2024-03-02
+- VULKAN: Implement vertex buffers
 2024-02-28
 - CMAKE: Add new CMakeList files for new subdirectories and connect them to the top level CMakeList
 - CLEANUP: Move Vulkan code out of engine.cpp and organize it into its own subdirectory within /src
