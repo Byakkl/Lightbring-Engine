@@ -165,10 +165,10 @@ void VulkanRenderer::initVulkan(){
     createRenderPass();
     createGraphicsPipeline();
     createFrameBuffers();
-    createCommandPool(&graphicsCommandPool, queueFamilies[0]);
-    createCommandPool(&transferCommandPool, queueFamilies[1]);
+    createCommandPool(graphicsCommandPool, queueFamilies[0]);
+    createCommandPool(transferCommandPool, queueFamilies[1]);
     createVertexBuffer();
-    createCommandBuffers(&graphicsCommandPool);
+    createCommandBuffers(graphicsCommandPool);
     createSyncObjects();
 }
 
@@ -269,14 +269,14 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
         throw std::runtime_error("Failed to record command buffer");
 }
 
-void VulkanRenderer::createCommandBuffers(VkCommandPool* pCommandPool){
+void VulkanRenderer::createCommandBuffers(VkCommandPool& commandPool){
     //Resize the array to the target size
     commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     //Set the command pool that this buffer will be a part of
-    allocInfo.commandPool = *pCommandPool;
+    allocInfo.commandPool = commandPool;
     //Specifies if command buffer is primary or secondary
     //Primary; can be submit to a queue for execution but cannot be called from other command buffers
     //Secondary; cannot be submit to a queue but can be called from a primary command buffer
@@ -287,14 +287,14 @@ void VulkanRenderer::createCommandBuffers(VkCommandPool* pCommandPool){
         throw std::runtime_error("Failed to allocate command buffers");
 }
 
-void VulkanRenderer::createCommandPool(VkCommandPool* pCommandPool, QueueFamilyIndices familyIndices){
+void VulkanRenderer::createCommandPool(VkCommandPool& commandPool, QueueFamilyIndices familyIndices){
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     //Associate this command pool with the graphics queue family as this command pool will be used for drawing
     poolInfo.queueFamilyIndex = familyIndices.queueFamily.value();
 
-    if(vkCreateCommandPool(device, &poolInfo, nullptr, pCommandPool) != VK_SUCCESS)
+    if(vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create command pool");
 }
 

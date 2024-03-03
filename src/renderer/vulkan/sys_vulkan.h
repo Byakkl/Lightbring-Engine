@@ -117,13 +117,13 @@ private:
     void recordCommandBuffer(VkCommandBuffer, uint32_t);
     
     /// @brief Creates the command buffers
-    /// @param pCommandPool Pointer to the command pool the buffer will be created on
-    void createCommandBuffers(VkCommandPool*);
+    /// @param commandPool Pointer to the command pool the buffer will be created on
+    void createCommandBuffers(VkCommandPool&);
     
     /// @brief Creates the command pool that the command buffers will be created out of
-    /// @param pCommandPool Pointer to the command pool variable to be populated
+    /// @param commandPool Pointer to the command pool variable to be populated
     /// @param familyIndices Container for the indices of the queue family
-    void createCommandPool(VkCommandPool*, QueueFamilyIndices);
+    void createCommandPool(VkCommandPool&, QueueFamilyIndices);
     
     /// @brief Create the framebuffers for the swap chain images
     void createFrameBuffers();
