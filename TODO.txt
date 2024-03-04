@@ -1,11 +1,9 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
-2024-03-03
-- VULKAN: Implement uniform buffer
+- VULKAN: Implement texture loading and mapping
 
 TODO:
-- VULKAN: Implement texture loading
 - VULKAN: Implement OBJ model imports
 - VULKAN: Decide on a better method for storing and referencing queue family indices than a vector (requestQueueFamilies, queueFamilies). 
     A fetch method to more explicitly declare what to fetch instead of magic index numbers. Potentially a map structure
@@ -17,9 +15,12 @@ TODO:
 - VULKAN: Look into combining vertex and index buffers using the offset parameters to better manage vkAllocateMemory
 - VULKAN: Look into combining multiple memory allocation calls into a single invocation by pre-processing available data (Not relevant with simple data at the moment)
 - VULKAN: Look into aliasing large buffers and the various functions/flags that support this
+- VULKAN: Look into Push Constants for moving frequently changing values into a shader. Eg for MVP uniform buffer
+- VULKAN: Look into supporting multiple descriptor sets
 
 DONE:
 2024-03-03 - 2024-03-03
+- VULKAN: Implement uniform buffer
 - VULKAN: Implement index buffer
 - VULKAN: Implement staging buffer for CPU to GPU buffer data transfer
 - VULKAN: Update queue family search method to be generic

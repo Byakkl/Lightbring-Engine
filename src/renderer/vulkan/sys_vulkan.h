@@ -65,6 +65,12 @@ private:
     std::vector<VkImageView> swapChainImageViews;
     //Stores the render pass used by the graphics pipeline
     VkRenderPass renderPass;
+    //Stores the descriptor set layout for shader bindings
+    VkDescriptorSetLayout descriptorSetLayout;
+    //Stores the descriptor pool
+    VkDescriptorPool descriptorPool;
+    //Stores the descriptor set handles from the descriptor pool; automatically freed when the descriptor pool is destroyed
+    std::vector<VkDescriptorSet> descriptorSets;
     //Stores the graphics pipeline layout object
     VkPipelineLayout pipelineLayout;
     //Stores the graphics pipeline object
@@ -97,6 +103,12 @@ private:
     VkBuffer indexBuffer;
     //Stores the handle to the index buffer's device memory
     VkDeviceMemory indexBufferMemory;
+    //List of handles to unifrom buffers
+    std::vector<VkBuffer> uniformBuffers;
+    //List of handles to uniform buffer memory
+    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    //List of handles to mapped uniform buffers
+    std::vector<void*> uniformBuffersMapped;
 
     /// @brief Initializes the window used to render to
     void initWindow();
@@ -245,7 +257,23 @@ private:
 
     /// @brief Clean up method for swap chain and related structures
     void cleanupSwapChain();
+
+    /// @brief Creates the shader binding layouts
+    void createDescriptorSetLayout();
     
+    /// @brief Creates the uniform buffers used in shaders
+    void createUniformBuffers();
+
+    /// @brief Creates a pool of uniform buffer descriptors
+    void createDescriptorPool();
+
+    /// @brief 
+    void createDescriptorSets();
+
+    /// @brief Updates a uniform buffer
+    /// @param currentImage The current frame index, used to identify which buffer needs updating
+    void updateUniformBuffer(uint32_t);
+
     /// @brief Populates a debug messenger instance creation info structure
     /// @param createInfo 
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT&);
