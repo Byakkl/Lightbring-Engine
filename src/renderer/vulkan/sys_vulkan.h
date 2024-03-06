@@ -109,6 +109,10 @@ private:
     std::vector<VkDeviceMemory> uniformBuffersMemory;
     //List of handles to mapped uniform buffers
     std::vector<void*> uniformBuffersMapped;
+    //Stores the handle to an image buffer
+    VkImage textureImage;
+    //Stores the handle to the image buffer's device memory
+    VkDeviceMemory textureImageMemory;
 
     /// @brief Initializes the window used to render to
     void initWindow();
@@ -267,8 +271,48 @@ private:
     /// @brief Creates a pool of uniform buffer descriptors
     void createDescriptorPool();
 
-    /// @brief 
+    /// @brief Creates descriptor sets from a layout
     void createDescriptorSets();
+
+    /// @brief Creates a texture from an image source
+    void createTextureImage();
+
+    /// @brief Creates a Vulkan image
+    /// @param width Width in pixels
+    /// @param height Height in pixels
+    /// @param format Format of the image data
+    /// @param tiling Texel layout format
+    /// @param usage Purpose of the image buffer
+    /// @param properties Properties of the image memory
+    /// @param image Reference to the image handle to be populated
+    /// @param imageMemory Reference to the memory handle to be populated
+    void createImage(uint32_t, uint32_t, VkFormat, VkImageTiling, 
+        VkImageUsageFlags, VkMemoryPropertyFlags, VkImage&, VkDeviceMemory&);
+
+    /// @brief Creates a command buffer and executes a Begin command
+    /// @param commandPool The command pool to create the buffer in
+    /// @return Returns the created command buffer
+    VkCommandBuffer beginSingleTimeCommands(VkCommandPool&);
+
+    /// @brief Ends a command buffer and submits it to the provided queue. Waits until the queue is complete before freeing the buffer
+    /// @param commandBuffer The command buffer to End and submit to the queue
+    /// @param queue The queue to submit the command buffer to
+    /// @param commandPool The command pool the buffer belongs to. Used to free the command buffer after completion
+    void endSingleTimeCommands(VkCommandBuffer, VkQueue&, VkCommandPool&);
+
+    /// @brief Converts an image to another layout
+    /// @param image The image to be converted
+    /// @param format The format of the image
+    /// @param oldLayout The current layout of the image
+    /// @param newLayut The layout to conver the image to
+    void transitionImageLayout(VkImage, VkFormat, VkImageLayout, VkImageLayout);
+
+    /// @brief Copies a buffer's data to an image
+    /// @param buffer The buffer to copy data from
+    /// @param image The image to populate
+    /// @param width The image width
+    /// @param height The image height
+    void copyBufferToImage(VkBuffer, VkImage, uint32_t, uint32_t);
 
     /// @brief Updates a uniform buffer
     /// @param currentImage The current frame index, used to identify which buffer needs updating

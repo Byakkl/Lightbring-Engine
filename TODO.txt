@@ -1,6 +1,7 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
+2024-03-04 - 
 - VULKAN: Implement texture loading and mapping
 
 TODO:

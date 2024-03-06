@@ -1,3 +1,4 @@
+#define STB_IMAGE_IMPLEMENTATION
 #include <stdexcept>
 #include <iostream>
 #include <cstdlib>
@@ -10,6 +11,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
+#include <stb_image.h>
 
 #include "debug_vulkan.h"
 #include "sys_vulkan.h"
@@ -171,6 +173,7 @@ void VulkanRenderer::initVulkan(){
     createFrameBuffers();
     createCommandPool(graphicsCommandPool, queueFamilies[0]);
     createCommandPool(transferCommandPool, queueFamilies[1]);
+    createTextureImage();
     createVertexBuffer();
     createIndexBuffer();
     createUniformBuffers();
@@ -179,6 +182,249 @@ void VulkanRenderer::initVulkan(){
     createCommandBuffers(graphicsCommandPool, graphicsCommandBuffers);
     createCommandBuffers(transferCommandPool, transferCommandBuffers);
     createSyncObjects();
+}
+
+void VulkanRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height){
+    //Create and Begin the command buffer
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferCommandPool);
+
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {
+        width,
+        height,
+        1
+    };
+
+    //Add a CopyBufferToImage command
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    //End and submit the buffer to the queue
+    endSingleTimeCommands(commandBuffer, transferQueue, transferCommandPool);
+}
+
+void VulkanRenderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout){
+    VkAccessFlags srcAccessMask, dstAccessMask;
+    VkPipelineStageFlags sourceStage, destinationStage;
+    VkCommandPool commandPool;
+    VkQueue commandQueue;
+
+    //Determine layout access masks, stages and which command pool/queue to use
+    if(oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL){
+        srcAccessMask = 0;
+        dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+
+        //Use the transfer pool as the target layout is for moving data
+        commandPool = transferCommandPool;
+        commandQueue = transferQueue;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL){
+        srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+
+        //Use the graphics pool as the target layout is for shader usage
+        commandPool = graphicsCommandPool;
+        commandQueue = graphicsQueue;
+    }
+    else
+        throw std::invalid_argument("Unsupported layout transition");
+
+    //Create and Begin the command buffer
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands(commandPool);
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    //Specify the layout to transition from
+    //Can use VK_IMAGE_LAYOUT_UNDEFINED if existing contents are irrelevant 
+    barrier.oldLayout = oldLayout;
+    //Specify the layout to transition to
+    barrier.newLayout = newLayout;
+    //No queue family transfer is occuring so these indices can be left untouched
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    //Specify the target image
+    barrier.image = image;
+    //Specify which parts of the image are effected
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    //No mipmapping
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    //No array layers
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    barrier.srcAccessMask = srcAccessMask;
+    barrier.dstAccessMask = dstAccessMask;
+
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        sourceStage, //Specify which pipeline stage the operations occur before the barrier
+        destinationStage, //Specify the pipeline stage in which operations will wait on the barrier
+        0, //Either 0 or VK_DEPENDENCY_BY_REGION_BIT to allow per-region condition
+        0, nullptr, //Memory barrier count and array pointer
+        0, nullptr, //Buffer memory barrier count and array pointer
+        1, &barrier); //Image memory barrier count and arrya pointer
+
+    endSingleTimeCommands(commandBuffer, commandQueue, commandPool);
+}
+
+VkCommandBuffer VulkanRenderer::beginSingleTimeCommands(VkCommandPool& commandPool){
+    //Create the command buffer allocation info
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    //Allocate the command buffer in the pool
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+    //Populate the command buffer with the Begin command
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    //Return the created command buffer
+    return commandBuffer;
+}
+
+void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueue& queue, VkCommandPool& commandPool){
+    //Populate the command buffer with an End command
+    vkEndCommandBuffer(commandBuffer);
+
+    //Create the command buffer submition info
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    //Submit the command to the queue
+    vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
+    //Wait for the queue to finish
+    vkQueueWaitIdle(queue);
+
+    //Clean up the completed command
+    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}
+
+void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory){
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    //Type of image; 1D, 2D or 3D
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    //Image dimensions
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1;
+    //Mipmapping levels
+    imageInfo.mipLevels = 1;
+    //Texture layering
+    imageInfo.arrayLayers = 1;
+    //Image format; should match what is in the staging buffer or will likely fail to copy
+    imageInfo.format = format;
+    //Texel access type
+    imageInfo.tiling = tiling;
+    //Specify if the first transition will preserve or discard texels
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    //Specify usage of the image buffer
+    imageInfo.usage = usage;
+    //Specify queue family sharing
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    //Single sample
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    //Multisampling flags
+    imageInfo.flags = 0;
+
+    //Create the image handle
+    if(vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create image");
+
+    //Get the memory requirements of the image
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(device, image, &memRequirements);
+
+    //Generate the allocation info
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+    //Allocate the image memory
+    if(vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate image memory");
+
+    //Bind the memory to a stored handle
+    vkBindImageMemory(device, image, imageMemory, 0);
+}
+
+void VulkanRenderer::createTextureImage(){
+    //Store the texture details
+    int texWidth, texHeight, texChannels;
+    //Load the image data
+    stbi_uc* pixels = stbi_load("test images/UVChecker_512.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    //Determine the size of the image in bytes
+    VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+    if(!pixels)
+        throw std::runtime_error("Failed to load texture image");
+
+    //Create the staging buffer to move the data to device local memory
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    createBuffer(imageSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBuffer,
+        stagingBufferMemory);
+    
+    //Transfer the image data into the staging buffer
+    void* data;
+    vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+    memcpy(data, pixels, static_cast<size_t>(imageSize));
+    vkUnmapMemory(device, stagingBufferMemory);
+
+    //Clean up the original imported image memory
+    stbi_image_free(pixels);
+
+    createImage(texWidth,
+    texHeight,
+    VK_FORMAT_R8G8B8A8_SRGB,
+    VK_IMAGE_TILING_OPTIMAL,
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    textureImage,
+    textureImageMemory);
+
+    //Transition the destination image to a transfer destination layout
+    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    //Copy the staging buffer data into the image
+    copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+
+    //Transition the image to a shader read only layout
+    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    //Clean up the staging buffer
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 void VulkanRenderer::createDescriptorSets(){
@@ -1092,22 +1338,8 @@ void VulkanRenderer::createIndexBuffer(){
 }
 
 void VulkanRenderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size){
-    //Create the command buffer allocation info
-    VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = transferCommandPool;
-    allocInfo.commandBufferCount = 1;
-
     //Create the command buffer
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-
-    //Populate the command buffer with a Begin command
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferCommandPool);
 
     //Populate the command buffer with a CopyBuffer command
     VkBufferCopy copyRegion{};
@@ -1116,22 +1348,8 @@ void VulkanRenderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDevice
     copyRegion.size = size;
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-    //Populate the command buffer with an End command
-    vkEndCommandBuffer(commandBuffer);
-
-    //Create the command buffer submition info
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
-
-    //Submit the command to the transfer queue
-    vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    //Wait for the queue to finish
-    vkQueueWaitIdle(transferQueue);
-
-    //Clean up the completed command
-    vkFreeCommandBuffers(device, transferCommandPool, 1, &commandBuffer);
+    //End and submit the command
+    endSingleTimeCommands(commandBuffer, transferQueue, transferCommandPool);
 }
 
 uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties){
@@ -1429,6 +1647,11 @@ void VulkanRenderer::cleanup(){
     //Clean up the swap chain and its dependent objects
     cleanupSwapChain();
 
+    //Clean up the texture memory
+    vkDestroyImage(device, textureImage, nullptr);
+    vkFreeMemory(device, textureImageMemory, nullptr);
+
+    //Clean up the uniform buffers
     for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
         vkDestroyBuffer(device, uniformBuffers[i], nullptr);
         vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
