@@ -113,6 +113,10 @@ private:
     VkImage textureImage;
     //Stores the handle to the image buffer's device memory
     VkDeviceMemory textureImageMemory;
+    //Stores an image view for the texture
+    VkImageView textureImageView;
+    //Stores the texture sampler handle
+    VkSampler textureSampler;
 
     /// @brief Initializes the window used to render to
     void initWindow();
@@ -313,6 +317,18 @@ private:
     /// @param width The image width
     /// @param height The image height
     void copyBufferToImage(VkBuffer, VkImage, uint32_t, uint32_t);
+
+    /// @brief Creates an image view for the texture image
+    void createTextureImageView();
+
+    /// @brief Creates an image view for the provided image
+    /// @param image The image to create a view for
+    /// @param format The format of the provided image
+    /// @return 
+    VkImageView createImageView(VkImage, VkFormat);
+
+    /// @brief Creates a texture sampler
+    void createTextureSampler();
 
     /// @brief Updates a uniform buffer
     /// @param currentImage The current frame index, used to identify which buffer needs updating

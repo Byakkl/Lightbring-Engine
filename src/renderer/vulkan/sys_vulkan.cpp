@@ -174,6 +174,8 @@ void VulkanRenderer::initVulkan(){
     createCommandPool(graphicsCommandPool, queueFamilies[0]);
     createCommandPool(transferCommandPool, queueFamilies[1]);
     createTextureImage();
+    createTextureImageView();
+    createTextureSampler();
     createVertexBuffer();
     createIndexBuffer();
     createUniformBuffers();
@@ -182,6 +184,77 @@ void VulkanRenderer::initVulkan(){
     createCommandBuffers(graphicsCommandPool, graphicsCommandBuffers);
     createCommandBuffers(transferCommandPool, transferCommandBuffers);
     createSyncObjects();
+}
+
+void VulkanRenderer::createTextureSampler(){
+    VkSamplerCreateInfo samplerInfo{};
+    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    //Specify how to interpret texels that are magnified
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    //Specify how to interpret texels that are minified
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    //Specify the sampling mode when outside of image borders
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    //Enable Anisotropic filtering
+    samplerInfo.anisotropyEnable = VK_TRUE;
+    
+    //Fetch the physical device properties
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+    //Use the physical device properties to determine the max anisotropy filtering
+    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+
+    //Specify the color that is returned when samping beyond image border
+    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    //Spcify if texture coordinates should be [0, width/height] or [0,1]
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    //Specify if a comparison operation is enabled
+    samplerInfo.compareEnable = VK_FALSE;
+    //Specify the type ofcomparison operation
+    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+    //Specify mipmapping settings
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.mipLodBias = 0.0f;
+    samplerInfo.minLod = 0.0f;
+    samplerInfo.maxLod = 0.0f;
+
+    if(vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create texture sampler");
+}
+
+VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format){
+    VkImageViewCreateInfo viewInfo{};
+    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    viewInfo.image = image;
+    //Determines what it treats the image as, in this case 2D. Can be used to treat it as 1D, 2D, 3D and cube maps
+    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    viewInfo.format = format;
+    //Allows for swizzling of color channels
+    viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+    //Subresource Range field informs of what the image's purpose is.
+    //Used as a color target
+    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    //No mip mapping
+    viewInfo.subresourceRange.baseMipLevel = 0;
+    viewInfo.subresourceRange.levelCount = 1;
+    //No layers
+    viewInfo.subresourceRange.baseArrayLayer = 0;
+    viewInfo.subresourceRange.layerCount = 1;
+    
+    VkImageView imageView;
+    if(vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create texture image view");
+
+    return imageView;
+}
+
+void VulkanRenderer::createTextureImageView(){
+    textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB);
 }
 
 void VulkanRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height){
@@ -997,42 +1070,18 @@ void VulkanRenderer::createGraphicsPipeline(){
 void VulkanRenderer::createImageViews(){
     swapChainImageViews.resize(swapChainImages.size());
 
-    for(size_t idx = 0; idx < swapChainImages.size(); idx++){
-        VkImageViewCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        createInfo.image = swapChainImages[idx];
-        //Determines what it treats the image as, in this case 2D. Can be used to treat it as 1D, 2D, 3D and cube maps
-        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        createInfo.format = swapChainImageFormat;
-        //Allows for swizzling of color channels
-        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        //Subresource Range field informs of what the image's purpose is.
-        //Used as a color target
-        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        //No mip mapping
-        createInfo.subresourceRange.baseMipLevel = 0;
-        createInfo.subresourceRange.levelCount = 1;
-        //No layers
-        createInfo.subresourceRange.baseArrayLayer = 0;
-        createInfo.subresourceRange.layerCount = 1;
-
-        //Create the image view and store it in the list
-        if(vkCreateImageView(device, &createInfo, nullptr, &swapChainImageViews[idx]) != VK_SUCCESS)
-            throw std::runtime_error("Failed to create image views");
-    }
+    for(size_t idx = 0; idx < swapChainImages.size(); idx++)
+        swapChainImageViews[idx] = createImageView(swapChainImages[idx], swapChainImageFormat);
 }
 
 void VulkanRenderer::cleanupSwapChain(){
     //Clean up the frame buffers
-    for(size_t i = 0; i < swapChainFramebuffers.size(); i++)
-        vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
+    for(auto frameBuffer : swapChainFramebuffers)
+        vkDestroyFramebuffer(device, frameBuffer, nullptr);
 
     //Clean up the image views
-    for(size_t i = 0; i < swapChainImageViews.size(); i++)
-        vkDestroyImageView(device, swapChainImageViews[i], nullptr);
+    for(auto imageView : swapChainImageViews)
+        vkDestroyImageView(device, imageView, nullptr);
 
     vkDestroySwapchainKHR(device, swapChain, nullptr);
 }
@@ -1195,6 +1244,10 @@ void VulkanRenderer::createLogicalDevice(){
 
     //Set the physical device features
     VkPhysicalDeviceFeatures deviceFeatures{};
+    //Enable Anisotropy in samplers
+    deviceFeatures.samplerAnisotropy = VK_TRUE;
+
+    //Set the features data
     createInfo.pEnabledFeatures = &deviceFeatures;
 
     //Set extension information
@@ -1519,7 +1572,7 @@ bool VulkanRenderer::isDeviceSuitable(VkPhysicalDevice device){
     }
 
     //Only return a valid device if it has the desired queue family support and swap chain support
-    return extensionsSupported && swapChainAdequate;
+    return extensionsSupported && swapChainAdequate && deviceFeatures.samplerAnisotropy;
 
     //EXAMPLE QUERY: Return true if the device is a discreate GPU with support for geometry shaders
     //return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
@@ -1646,6 +1699,12 @@ void VulkanRenderer::drawFrame(){
 void VulkanRenderer::cleanup(){
     //Clean up the swap chain and its dependent objects
     cleanupSwapChain();
+
+    //Clean up the texture sampler
+    vkDestroySampler(device, textureSampler, nullptr);
+
+    //Clean up the image view
+    vkDestroyImageView(device, textureImageView, nullptr);
 
     //Clean up the texture memory
     vkDestroyImage(device, textureImage, nullptr);
