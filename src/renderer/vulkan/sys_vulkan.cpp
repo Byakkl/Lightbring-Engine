@@ -526,41 +526,59 @@ void VulkanRenderer::createDescriptorSets(){
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = textureImageView;
+        imageInfo.sampler = textureSampler;
+
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+
+        //Uniform buffer descriptor set
+        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         //Specify the descriptor set to write to
-        descriptorWrite.dstSet = descriptorSets[i];
+        descriptorWrites[0].dstSet = descriptorSets[i];
         //Specify the binding of the descriptor set
-        descriptorWrite.dstBinding = 0;
+        descriptorWrites[0].dstBinding = 0;
         //Specify the first index in the array that is to be updated
-        descriptorWrite.dstArrayElement = 0;
+        descriptorWrites[0].dstArrayElement = 0;
         //Specify the type of the descriptor elements that are being updated
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
         //Specify how many descriptors are to be updated
-        descriptorWrite.descriptorCount = 1;
+        descriptorWrites[0].descriptorCount = 1;
         //Specify the buffer info for descriptors that update buffer data
-        descriptorWrite.pBufferInfo = &bufferInfo;
+        descriptorWrites[0].pBufferInfo = &bufferInfo;
         //Specify the image info for descriptors that update image data 
-        descriptorWrite.pImageInfo = nullptr;
+        descriptorWrites[0].pImageInfo = nullptr;
         //Specify the texel view for descriptors that update buffer views
-        descriptorWrite.pTexelBufferView = nullptr;
+        descriptorWrites[0].pTexelBufferView = nullptr;
+
+        //Image descriptor set
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = descriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pImageInfo = &imageInfo;
 
         //Apply the updates
-        vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
 }
 
 void VulkanRenderer::createDescriptorPool(){
-    //Specify the size of the pool to be created
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    //Specify the size of the pools to be created
+    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
     //Generate creation info
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
     //Specify the maximum number of sets that can be allocated
     poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
@@ -587,6 +605,7 @@ void VulkanRenderer::createUniformBuffers(){
 }
 
 void VulkanRenderer::createDescriptorSetLayout(){
+    //Layout binding for the Uniform Buffer Object
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     //Specify the binding used in the shader
     uboLayoutBinding.binding = 0;
@@ -599,11 +618,20 @@ void VulkanRenderer::createDescriptorSetLayout(){
     //Relevant for image sampling descriptors
     uboLayoutBinding.pImmutableSamplers = nullptr;
 
+    //Layout binding for the texture sampler
+    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+    samplerLayoutBinding.binding = 1;
+    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerLayoutBinding.pImmutableSamplers = nullptr;
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
     //Generate the layout creation info
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings = &uboLayoutBinding;
+    layoutInfo.bindingCount = bindings.size();
+    layoutInfo.pBindings = bindings.data();
 
     //Create the descriptor layout
     if(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)

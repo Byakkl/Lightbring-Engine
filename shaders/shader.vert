@@ -10,9 +10,13 @@ layout(binding = 0) uniform UniformBufferObject{
 layout(location = 0) in vec2 inPosition;
 //Input variable for vertex color
 layout(location = 1) in vec3 inColor;
+//Input variable for vertex UV
+layout(location = 2) in vec2 inTexCoord;
 
 //Output variable that will send color data to the fragment shader using framebuffer with index 0
 layout(location = 0) out vec3 fragColor;
+//Output variable that will send texture coordinate data to the fragment shader
+layout(location = 1) out vec2 fragTexCoord;
 
 void main(){
     //"gl_Position" is a built in variable that acts as the output
@@ -22,4 +26,6 @@ void main(){
 
     //Assign the color to the input color
     fragColor = inColor;
+    //Assign the texture coordinates
+    fragTexCoord = inTexCoord;
 }

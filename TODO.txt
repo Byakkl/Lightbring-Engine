@@ -1,8 +1,8 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
-2024-03-04 - 
-- VULKAN: Implement texture loading and mapping
+2024-03-08 - 
+- VULKAN: Implement depth buffering
 
 TODO:
 - VULKAN: Implement OBJ model imports
@@ -20,6 +20,8 @@ TODO:
 - VULKAN: Look into supporting multiple descriptor sets
 
 DONE:
+2024-03-04 - 2024-03-08
+- VULKAN: Implement texture loading and mapping
 2024-03-03 - 2024-03-03
 - VULKAN: Implement uniform buffer
 - VULKAN: Implement index buffer
