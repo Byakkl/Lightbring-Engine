@@ -117,6 +117,10 @@ private:
     VkImageView textureImageView;
     //Stores the texture sampler handle
     VkSampler textureSampler;
+    //Stores depth image handles
+    VkImage depthImage;
+    VkDeviceMemory depthImageMemory;
+    VkImageView depthImageView;
 
     /// @brief Initializes the window used to render to
     void initWindow();
@@ -324,8 +328,9 @@ private:
     /// @brief Creates an image view for the provided image
     /// @param image The image to create a view for
     /// @param format The format of the provided image
+    /// @param aspectFlags The aspect flag for the image, eg color or depth
     /// @return 
-    VkImageView createImageView(VkImage, VkFormat);
+    VkImageView createImageView(VkImage, VkFormat, VkImageAspectFlags);
 
     /// @brief Creates a texture sampler
     void createTextureSampler();
@@ -333,6 +338,25 @@ private:
     /// @brief Updates a uniform buffer
     /// @param currentImage The current frame index, used to identify which buffer needs updating
     void updateUniformBuffer(uint32_t);
+
+    /// @brief Creates texture resource for a depth buffer
+    void createDepthResources();
+
+    /// @brief Finds a format that supports the desired features
+    /// @param candidates The list of formats to be looked through
+    /// @param tiling Image tiling
+    /// @param features The features to be supported
+    /// @return 
+    VkFormat findSupportedFormat(const std::vector<VkFormat>&, VkImageTiling, VkFormatFeatureFlags);
+
+    /// @brief Finds the depth format
+    /// @return 
+    VkFormat findDepthFormat();
+
+    /// @brief Checks if a given format has a stencil component
+    /// @param format The format to check
+    /// @return True if the format has a stencil component 
+    bool hasStencilComponent(VkFormat);
 
     /// @brief Populates a debug messenger instance creation info structure
     /// @param createInfo 
