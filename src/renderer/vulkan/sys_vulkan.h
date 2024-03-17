@@ -2,16 +2,28 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vector>
+#include "../renderer.h"
+#include "../../core/structs.h"
 #include "structs_vulkan.h"
 
-class VulkanRenderer{
+class VulkanRenderer : public Renderer{
 public:
-    /// @brief Called to run the engine
-    void run();
+    /// @brief Implementation of Renderer pure virtual method
+    void initialize() override;
+
+    bool render() override;
+
+    void cleanup() override;
+
+    void uploadImage(const Image*) override;
+
+    void uploadMesh(const Mesh*) override;
 
 private:
     //Constant to define concurrent frame processing
     const int MAX_FRAMES_IN_FLIGHT = 2;
+    //Constant to define the maximum number of sets in the model pool
+    const int MAX_MODEL_DESCRIPTOR_SETS = 10;
     //Constants for window width and height
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
@@ -66,11 +78,11 @@ private:
     //Stores the render pass used by the graphics pipeline
     VkRenderPass renderPass;
     //Stores the descriptor set layout for shader bindings
-    VkDescriptorSetLayout descriptorSetLayout;
+    VkDescriptorSetLayout modelDescriptorSetLayout;
     //Stores the descriptor pool
-    VkDescriptorPool descriptorPool;
+    VkDescriptorPool modelDescriptorPool;
     //Stores the descriptor set handles from the descriptor pool; automatically freed when the descriptor pool is destroyed
-    std::vector<VkDescriptorSet> descriptorSets;
+    std::vector<VkDescriptorSet> modelDescriptorSets;
     //Stores the graphics pipeline layout object
     VkPipelineLayout pipelineLayout;
     //Stores the graphics pipeline object
@@ -95,26 +107,16 @@ private:
     uint32_t currentFrame = 0;
     //Stores flag to track if a resize has occurred
     bool framebufferResized = false;
-    //Stores a data buffer for vertex data
-    VkBuffer vertexBuffer;
-    //Stores the handle to the vertex buffer's device memory 
-    VkDeviceMemory vertexBufferMemory;
-    //Stores a data buffer for index data
-    VkBuffer indexBuffer;
-    //Stores the handle to the index buffer's device memory
-    VkDeviceMemory indexBufferMemory;
+    //List of Mesh data set pointers
+    std::vector<MeshData*> meshes;
     //List of handles to unifrom buffers
     std::vector<VkBuffer> uniformBuffers;
     //List of handles to uniform buffer memory
     std::vector<VkDeviceMemory> uniformBuffersMemory;
     //List of handles to mapped uniform buffers
     std::vector<void*> uniformBuffersMapped;
-    //Stores the handle to an image buffer
-    VkImage textureImage;
-    //Stores the handle to the image buffer's device memory
-    VkDeviceMemory textureImageMemory;
-    //Stores an image view for the texture
-    VkImageView textureImageView;
+    //List of Image data set pointers
+    std::vector<ImageData*> images;
     //Stores the texture sampler handle
     VkSampler textureSampler;
     //Stores depth image handles
@@ -194,10 +196,10 @@ private:
     void createBuffer(VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags, VkBuffer&, VkDeviceMemory&);
 
     /// @brief Creates a vertex buffer for use in shaders
-    void createVertexBuffer();
+    void createVertexBuffer(const Mesh*, MeshData*);
 
     /// @brief Creats an index buffer for use in shaders
-    void createIndexBuffer();
+    void createIndexBuffer(const Mesh*, MeshData*);
 
     /// @brief Copies data from one buffer to another
     /// @param srcBuffer Source data buffer
@@ -279,11 +281,15 @@ private:
     /// @brief Creates a pool of uniform buffer descriptors
     void createDescriptorPool();
 
-    /// @brief Creates descriptor sets from a layout
-    void createDescriptorSets();
+    /// @brief Creates descriptor sets from a layout. Fails if numberOfSets does not match the size of descriptorLayouts
+    /// @param descriptorPool The pool that the sets will be allocated from
+    /// @param numberOfSets The number of sets to be allocated
+    /// @param descriptorLayouts The layouts of each of the sets to be allocated
+    /// @param descriptorSets The vector to resize and populate the new set handles into
+    void createDescriptorSets(VkDescriptorPool, uint32_t, std::vector<VkDescriptorSetLayout>, std::vector<VkDescriptorSet>);
 
     /// @brief Creates a texture from an image source
-    void createTextureImage();
+    void createTextureImage(const Image*, ImageData*);
 
     /// @brief Creates a Vulkan image
     /// @param width Width in pixels
@@ -295,7 +301,7 @@ private:
     /// @param image Reference to the image handle to be populated
     /// @param imageMemory Reference to the memory handle to be populated
     void createImage(uint32_t, uint32_t, VkFormat, VkImageTiling, 
-        VkImageUsageFlags, VkMemoryPropertyFlags, VkImage&, VkDeviceMemory&);
+        VkImageUsageFlags, VkMemoryPropertyFlags, ImageData*);
 
     /// @brief Creates a command buffer and executes a Begin command
     /// @param commandPool The command pool to create the buffer in
@@ -313,7 +319,7 @@ private:
     /// @param format The format of the image
     /// @param oldLayout The current layout of the image
     /// @param newLayut The layout to conver the image to
-    void transitionImageLayout(VkImage, VkFormat, VkImageLayout, VkImageLayout);
+    void transitionImageLayout(VkImage&, VkFormat, VkImageLayout, VkImageLayout);
 
     /// @brief Copies a buffer's data to an image
     /// @param buffer The buffer to copy data from
@@ -322,15 +328,11 @@ private:
     /// @param height The image height
     void copyBufferToImage(VkBuffer, VkImage, uint32_t, uint32_t);
 
-    /// @brief Creates an image view for the texture image
-    void createTextureImageView();
-
     /// @brief Creates an image view for the provided image
     /// @param image The image to create a view for
     /// @param format The format of the provided image
     /// @param aspectFlags The aspect flag for the image, eg color or depth
-    /// @return 
-    VkImageView createImageView(VkImage, VkFormat, VkImageAspectFlags);
+    void createImageView(ImageData*, VkFormat, VkImageAspectFlags);
 
     /// @brief Creates a texture sampler
     void createTextureSampler();

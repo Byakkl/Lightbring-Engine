@@ -12,7 +12,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
-#include <stb_image.h>
 
 #include "debug_vulkan.h"
 #include "sys_vulkan.h"
@@ -20,12 +19,101 @@
 #include "../../fileio/util_io.h"
 #include "structs_model.h"
 
-
-void VulkanRenderer::run(){
+void VulkanRenderer::initialize(){
     initWindow();
     initVulkan();
-    mainLoop();
-    cleanup();
+}
+
+bool VulkanRenderer::render(){
+    if(glfwWindowShouldClose(window))
+        return false;
+
+    glfwPollEvents();
+    drawFrame();
+    
+    return true;
+}
+
+void VulkanRenderer::cleanup(){
+    //Wait for the logical device to finish operations before exiting main loop
+    vkDeviceWaitIdle(device);
+
+    //Clean up the swap chain and its dependent objects
+    cleanupSwapChain();
+
+    //Clean up the texture sampler
+    vkDestroySampler(device, textureSampler, nullptr);
+
+    //Clean up the images
+    for(auto image : images)
+        image->cleanup(device);
+
+    //Clean up the uniform buffers
+    for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+        vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+        vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+    }
+
+    //Clean up the descriptor pool
+    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+
+    //Clean up the descriptor set layout
+    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+
+    for(auto mesh : meshes)
+        mesh->cleanup(device);
+
+    //Clean up sync objects
+    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+        vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
+        vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
+        vkDestroyFence(device, inFlightFences[i], nullptr);
+    }
+
+    //Clean up the command pools
+    vkDestroyCommandPool(device, graphicsCommandPool, nullptr);
+    vkDestroyCommandPool(device, transferCommandPool, nullptr);
+
+    //Clean up the graphics pipeline
+    vkDestroyPipeline(device, graphicsPipeline, nullptr);
+
+    //Clean up the graphics pipeline layout
+    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+        
+    //Clean up the render pass
+    vkDestroyRenderPass(device, renderPass, nullptr);
+
+    //Clean up the logical device
+    vkDestroyDevice(device, nullptr);
+
+    //If validation layers are enabled clean up the debug messenger instance
+    if(enableValidationLayers)
+        DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+
+    //Clean up with window surface
+    vkDestroySurfaceKHR(instance, surface, nullptr);
+
+    //Clean up the Vulkan instance
+    vkDestroyInstance(instance, nullptr);
+        
+    //Clean up the created window
+    glfwDestroyWindow(window);
+        
+    //Clean up GLFW
+    glfwTerminate();
+}
+
+void VulkanRenderer::uploadImage(const Image* imageData){
+    ImageData image;
+    createTextureImage(imageData, &image);
+    //Create the image view for the texture
+    createImageView(&image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+void VulkanRenderer::uploadMesh(const Mesh* meshData){
+    MeshData mesh;
+    createVertexBuffer(meshData, &mesh);
+    createIndexBuffer(meshData, &mesh);
 }
 
 std::vector<const char*> VulkanRenderer::getRequiredExtensions(){
@@ -175,14 +263,10 @@ void VulkanRenderer::initVulkan(){
     createCommandPool(transferCommandPool, queueFamilies[1]);
     createDepthResources();
     createFrameBuffers();
-    createTextureImage();
-    createTextureImageView();
     createTextureSampler();
-    createVertexBuffer();
-    createIndexBuffer();
     createUniformBuffers();
     createDescriptorPool();
-    createDescriptorSets();
+    createDescriptorSets(modelDescriptorPool, MAX_MODEL_DESCRIPTOR_SETS, std::vector<VkDescriptorSetLayout>{MAX_MODEL_DESCRIPTOR_SETS,modelDescriptorSetLayout}, modelDescriptorSets);
     createCommandBuffers(graphicsCommandPool, graphicsCommandBuffers);
     createCommandBuffers(transferCommandPool, transferCommandBuffers);
     createSyncObjects();
@@ -215,6 +299,7 @@ VkFormat VulkanRenderer::findSupportedFormat(const std::vector<VkFormat>& candid
 }
 
 void VulkanRenderer::createDepthResources(){
+    ImageData depthImage;
     VkFormat depthFormat = findDepthFormat();
     createImage(swapChainExtent.width, 
         swapChainExtent.height, 
@@ -222,12 +307,11 @@ void VulkanRenderer::createDepthResources(){
         VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        depthImage,
-        depthImageMemory);
+        &depthImage);
 
-    depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    createImageView(&depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-    transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    transitionImageLayout(depthImage.image, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
 void VulkanRenderer::createTextureSampler(){
@@ -268,10 +352,10 @@ void VulkanRenderer::createTextureSampler(){
         throw std::runtime_error("Failed to create texture sampler");
 }
 
-VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags){
+void VulkanRenderer::createImageView(ImageData* imageData, VkFormat format, VkImageAspectFlags aspectFlags){
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = image;
+    viewInfo.image = imageData->image;
     //Determines what it treats the image as, in this case 2D. Can be used to treat it as 1D, 2D, 3D and cube maps
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = format;
@@ -294,11 +378,7 @@ VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkIm
     if(vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
         throw std::runtime_error("Failed to create texture image view");
 
-    return imageView;
-}
-
-void VulkanRenderer::createTextureImageView(){
-    textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+    imageData->imageViews.push_back(imageView);
 }
 
 void VulkanRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height){
@@ -329,7 +409,7 @@ void VulkanRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t 
     endSingleTimeCommands(commandBuffer, transferQueue, transferCommandPool);
 }
 
-void VulkanRenderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout){
+void VulkanRenderer::transitionImageLayout(VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout){
     VkAccessFlags srcAccessMask, dstAccessMask;
     VkPipelineStageFlags sourceStage, destinationStage;
     VkCommandPool commandPool;
@@ -462,7 +542,7 @@ void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkQueu
 }
 
 void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
-    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory){
+    VkImageUsageFlags usage, VkMemoryPropertyFlags properties, ImageData* imageData){
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     //Type of image; 1D, 2D or 3D
@@ -491,12 +571,12 @@ void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat forma
     imageInfo.flags = 0;
 
     //Create the image handle
-    if(vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS)
+    if(vkCreateImage(device, &imageInfo, nullptr, &imageData->image) != VK_SUCCESS)
         throw std::runtime_error("Failed to create image");
 
     //Get the memory requirements of the image
     VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(device, image, &memRequirements);
+    vkGetImageMemoryRequirements(device, imageData->image, &memRequirements);
 
     //Generate the allocation info
     VkMemoryAllocateInfo allocInfo{};
@@ -505,22 +585,19 @@ void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat forma
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
     //Allocate the image memory
-    if(vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
+    if(vkAllocateMemory(device, &allocInfo, nullptr, &imageData->memory) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate image memory");
 
     //Bind the memory to a stored handle
-    vkBindImageMemory(device, image, imageMemory, 0);
+    vkBindImageMemory(device, imageData->image, imageData->memory, 0);
 }
 
-void VulkanRenderer::createTextureImage(){
-    //Store the texture details
-    int texWidth, texHeight, texChannels;
-    //Load the image data
-    stbi_uc* pixels = stbi_load("test images/UVChecker_512.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+void VulkanRenderer::createTextureImage(const Image* imageData, ImageData* output){
+    
     //Determine the size of the image in bytes
-    VkDeviceSize imageSize = texWidth * texHeight * 4;
+    VkDeviceSize imageSize = imageData->width * imageData->height * 4;
 
-    if(!pixels)
+    if(!imageData->data)
         throw std::runtime_error("Failed to load texture image");
 
     //Create the staging buffer to move the data to device local memory
@@ -535,54 +612,65 @@ void VulkanRenderer::createTextureImage(){
     //Transfer the image data into the staging buffer
     void* data;
     vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, pixels, static_cast<size_t>(imageSize));
+    memcpy(data, imageData->data, static_cast<size_t>(imageSize));
     vkUnmapMemory(device, stagingBufferMemory);
 
-    //Clean up the original imported image memory
-    stbi_image_free(pixels);
-
-    createImage(texWidth,
-    texHeight,
+    createImage(imageData->width,
+    imageData->height,
     VK_FORMAT_R8G8B8A8_SRGB,
     VK_IMAGE_TILING_OPTIMAL,
     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-    textureImage,
-    textureImageMemory);
+    output);
 
     //Transition the destination image to a transfer destination layout
-    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    transitionImageLayout(output->image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     //Copy the staging buffer data into the image
-    copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+    copyBufferToImage(stagingBuffer, output->image, static_cast<uint32_t>(imageData->width), static_cast<uint32_t>(imageData->height));
 
     //Transition the image to a shader read only layout
-    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    transitionImageLayout(output->image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     //Clean up the staging buffer
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
+
 }
 
-void VulkanRenderer::createDescriptorSets(){
-    //Create a list of layouts with a number of entries all set to the previously defined layout
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
+void VulkanRenderer::updateDescriptorSets(){
+
+}
+
+void VulkanRenderer::createDescriptorSets(VkDescriptorPool descriptorPool, uint32_t numberOfSets, std::vector<VkDescriptorSetLayout> descriptorLayouts, std::vector<VkDescriptorSet> descriptorSets){
+    //There must be a descirptor layout entry for each descriptor set that is going to be created
+    if(descriptorLayouts.size() != numberOfSets)
+        throw std::runtime_error("Failed to allocate descriptor sets. Layout array size does not match number of sets to create");
 
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     //Specify the descriptor pool to allocate from
     allocInfo.descriptorPool = descriptorPool;
     //Specify the number of sets to allocate
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-    //Specify the layout to base the allocated sets on
-    allocInfo.pSetLayouts = layouts.data();
+    allocInfo.descriptorSetCount = numberOfSets;
+    //Specify the layouts of each the sets to create
+    allocInfo.pSetLayouts = descriptorLayouts.data();
 
-    //Resize the container list
-    descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-    //Allocate the descriptor sets from the pool
-    if(vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS)
+    //Track the original size of the destination vector
+    int originalSize = descriptorSets.size();
+    //Resize the vector to contain the new results
+    descriptorSets.resize(descriptorSets.size() + numberOfSets);
+
+    //Attempt to allocate the descriptor sets, populating the new space in the vector
+    VkResult result = vkAllocateDescriptorSets(device, &allocInfo, &descriptorSets[originalSize - 1]);
+    if (result != VK_SUCCESS){
+        //Reset the vector back to its original state
+        descriptorSets.resize(originalSize);
         throw std::runtime_error("Failed to allocate descriptor sets");
+    }
+}
 
+void VulkanRenderer::createDescriptorSets(){
     //Populate the descriptors
     for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
         VkDescriptorBufferInfo bufferInfo{};
@@ -1029,8 +1117,8 @@ void VulkanRenderer::createGraphicsPipeline(){
     dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicState.pDynamicStates = dynamicStates.data();
 
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+    auto bindingDescription = VkVertex::getBindingDescription();
+    auto attributeDescriptions = VkVertex::getAttributeDescriptions();
 
     //Informs the graphics pipeline the format of the vertex data that is passed to the vertex shader
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -1455,9 +1543,9 @@ void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, V
     vkBindBufferMemory(device, buffer, bufferMemory, 0);
 }
 
-void VulkanRenderer::createVertexBuffer(){
+void VulkanRenderer::createVertexBuffer(const Mesh* meshData, MeshData* output){
     //Determine the size of the buffer
-    VkDeviceSize bufferSize = sizeof(hardcodedVerts[0]) * hardcodedVerts.size();
+    VkDeviceSize bufferSize = sizeof(meshData->vertices[0]) * meshData->vertices.size();
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -1472,7 +1560,7 @@ void VulkanRenderer::createVertexBuffer(){
     //Map the buffer memory into CPU accessible memory
     vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
     //Copy the vertex data into the buffer
-    memcpy(data, hardcodedVerts.data(), (size_t) bufferSize);
+    memcpy(data, meshData->vertices.data(), (size_t) bufferSize);
     //Unmap the memory as we no longer need access
     vkUnmapMemory(device, stagingBufferMemory);
 
@@ -1480,20 +1568,20 @@ void VulkanRenderer::createVertexBuffer(){
     createBuffer(bufferSize, 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        vertexBuffer,
-        vertexBufferMemory);
+        output->vertexBuffer,
+        output->vertexMemory);
 
     //Copy the staging buffer into the vertex buffer
-    copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+    copyBuffer(stagingBuffer, output->vertexBuffer, bufferSize);
 
     //Clean up the staging buffer and its memory
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void VulkanRenderer::createIndexBuffer(){
+void VulkanRenderer::createIndexBuffer(const Mesh* meshData, MeshData* output){
     //Determine the size of the buffer
-    VkDeviceSize bufferSize = sizeof(hardcodedIndices[0]) * hardcodedIndices.size();
+    VkDeviceSize bufferSize = sizeof(meshData->indices[0]) * meshData->indices.size();
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -1509,7 +1597,7 @@ void VulkanRenderer::createIndexBuffer(){
     //Map the memory of the staging buffer to the void pointer
     vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
     //Copy the data into the buffer the pointer indicates
-    memcpy(data, hardcodedIndices.data(), (size_t) bufferSize);
+    memcpy(data, meshData->indices.data(), (size_t) bufferSize);
     //Unmap the staging buffer
     vkUnmapMemory(device, stagingBufferMemory);
 
@@ -1517,11 +1605,11 @@ void VulkanRenderer::createIndexBuffer(){
     createBuffer(bufferSize, 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        indexBuffer,
-        indexBufferMemory);
+        output->indexBuffer,
+        output->indexMemory);
     
     //Copy the memory from source to destination
-    copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+    copyBuffer(stagingBuffer, output->indexBuffer, bufferSize);
 
     //Clean up the staging buffer and its memory
     vkDestroyBuffer(device, stagingBuffer, nullptr);
@@ -1832,82 +1920,6 @@ void VulkanRenderer::drawFrame(){
 
     //Advance to the next frame in the loop
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
-
-void VulkanRenderer::cleanup(){
-    //Clean up the swap chain and its dependent objects
-    cleanupSwapChain();
-
-    //Clean up the texture sampler
-    vkDestroySampler(device, textureSampler, nullptr);
-
-    //Clean up the image view
-    vkDestroyImageView(device, textureImageView, nullptr);
-
-    //Clean up the texture memory
-    vkDestroyImage(device, textureImage, nullptr);
-    vkFreeMemory(device, textureImageMemory, nullptr);
-
-    //Clean up the uniform buffers
-    for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-        vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-        vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
-    }
-
-    //Clean up the descriptor pool
-    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
-
-    //Clean up the descriptor set layout
-    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-
-    //Clean up the vertex buffer
-    vkDestroyBuffer(device, vertexBuffer, nullptr);
-    //Release the vertex buffer memory
-    vkFreeMemory(device, vertexBufferMemory, nullptr);
-
-    //Clean up the index buffer
-    vkDestroyBuffer(device, indexBuffer, nullptr);
-    //Release the index buffer memory
-    vkFreeMemory(device, indexBufferMemory, nullptr);
-
-    //Clean up sync objects
-    for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-        vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
-        vkDestroyFence(device, inFlightFences[i], nullptr);
-    }
-
-    //Clean up the command pools
-    vkDestroyCommandPool(device, graphicsCommandPool, nullptr);
-    vkDestroyCommandPool(device, transferCommandPool, nullptr);
-
-    //Clean up the graphics pipeline
-    vkDestroyPipeline(device, graphicsPipeline, nullptr);
-
-    //Clean up the graphics pipeline layout
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-        
-    //Clean up the render pass
-    vkDestroyRenderPass(device, renderPass, nullptr);
-
-    //Clean up the logical device
-    vkDestroyDevice(device, nullptr);
-
-    //If validation layers are enabled clean up the debug messenger instance
-    if(enableValidationLayers)
-        DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
-
-    //Clean up with window surface
-    vkDestroySurfaceKHR(instance, surface, nullptr);
-
-    //Clean up the Vulkan instance
-    vkDestroyInstance(instance, nullptr);
-        
-    //Clean up the created window
-    glfwDestroyWindow(window);
-        
-    //Clean up GLFW
-    glfwTerminate();
 }
 
 bool VulkanRenderer::requestQueueFamilies(VkPhysicalDevice physicalDevice){

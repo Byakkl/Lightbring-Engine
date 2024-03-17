@@ -5,14 +5,8 @@
 #include <vulkan/vulkan_core.h>
 
 /// @brief Defines a vertex to be used with Vulkan
-struct Vertex {
-    //Vertex position
-    glm::vec3 pos;
-    //Vertex color
-    glm::vec3 color;
-    //UV Coords
-    glm::vec2 texCoord;
-
+class VkVertex : Vertex {
+public:
     /// @brief Method to inform Vulkan the size of the data and at what rate to load it
     /// @return 
     static VkVertexInputBindingDescription getBindingDescription(){
@@ -52,7 +46,7 @@ struct Vertex {
         attributeDescriptions[2].binding = 0;
         attributeDescriptions[2].location = 2;
         attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+        attributeDescriptions[2].offset = offsetof(Vertex, uv);
         
 
         return attributeDescriptions;
@@ -63,21 +57,4 @@ struct UniformBufferObject{
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
-};
-
-const std::vector<Vertex> hardcodedVerts = {
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-    
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-};
-
-const std::vector<uint16_t> hardcodedIndices = {
-    0, 1, 2, 2, 3, 0,
-    4, 5, 6, 6, 7, 4
 };

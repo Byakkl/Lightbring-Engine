@@ -2,9 +2,13 @@ This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
 2024-03-11 - 
-- VULKAN: Implement OBJ model imports
+- ENGINE: Refactor out references to importers and hard coded values from the Vulkan renderer implementation
+- CLEANUP: Move importers to their own areas in the `fileio` directory
+- ENGINE: Set up defines for each major system in the API. Ie Vulkan, OBJ Import, Image Import, and anything else that could be defined as `optional`
+- CMAKE: Set up conditional build defines that propagate preprocessor defines using `add_compile_definitions` for each of the optional systems
 
 TODO:
+- VULKAN: Implement OBJ model imports
 - VULKAN: Decide on a better method for storing and referencing queue family indices than a vector (requestQueueFamilies, queueFamilies). 
     A fetch method to more explicitly declare what to fetch instead of magic index numbers. Potentially a map structure
 - VULKAN: Revisit command pool creation to more directly control the number of buffers. (Not all queues likely need a number of buffers equal to the number of frames in flight)
@@ -17,6 +21,7 @@ TODO:
 - VULKAN: Look into aliasing large buffers and the various functions/flags that support this
 - VULKAN: Look into Push Constants for moving frequently changing values into a shader. Eg for MVP uniform buffer
 - VULKAN: Look into supporting multiple descriptor sets
+- ENGINE: Create an API .h that can be used externally for when the engine is built as a library and not an executable
 
 DONE:
 2024-03-08 - 2024-03-11

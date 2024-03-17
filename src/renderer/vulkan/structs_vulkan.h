@@ -34,3 +34,45 @@ struct QueueFamilyIndices{
         requiresPresentFamily = presentationRequired;
     }
 };
+
+//Container for a set of Image data
+struct ImageData{
+    //Stores the handle to an image buffer
+    VkImage image;
+    //Stores the handle to the image buffer's device memory
+    VkDeviceMemory memory;
+    //Stores an image view for the texture
+    std::vector<VkImageView> imageViews;
+
+    /// @brief Cleans up the view, memory and image buffers
+    /// @param device The logical device the image exists on
+    void cleanup(VkDevice device){
+        for(auto view : imageViews)
+            vkDestroyImageView(device, view, nullptr);
+        vkDestroyImage(device, image, nullptr);
+        vkFreeMemory(device, memory, nullptr);
+    }
+};
+
+//Container for a set of Mesh data. Currently Vertex and Index data is split into two device memory allocations
+struct MeshData{
+    //Stores the handle to the device memory allocated for vertices
+    VkDeviceMemory vertexMemory;
+    //Stores a buffer region for the vertexBufferMemory
+    VkBuffer vertexBuffer;
+
+    //Stores the handle to the device memory allocated for indices
+    VkDeviceMemory indexMemory;
+    //Stores a buffer region for the indexBufferMemory
+    VkBuffer indexBuffer;
+
+    /// @brief Cleans up the vertex and index memory allocations and their associated access buffers
+    /// @param device 
+    void cleanup(VkDevice device){
+        vkDestroyBuffer(device, vertexBuffer, nullptr);
+        vkFreeMemory(device, vertexMemory, nullptr);
+
+        vkDestroyBuffer(device, indexBuffer, nullptr);
+        vkFreeMemory(device, indexMemory, nullptr);
+    }
+};
