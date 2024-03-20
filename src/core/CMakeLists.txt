@@ -3,7 +3,8 @@ set(CORE_SOURCES
     primitives.h
     object.cpp
     scene.cpp
-    renderer.h)
+    renderer.h
+    camera.cpp)
 
 add_library(Core_Lib ${CORE_SOURCES})
 

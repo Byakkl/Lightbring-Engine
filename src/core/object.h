@@ -7,10 +7,15 @@ class Component;
 
 class Object {
 public:
+    //Locally managed component present on all objects
+    Component* transform;
+    
+    Object();
+    ~Object();
     bool addComponent(Component*);
     Component* getComponent(const ComponentType);
-    void cleanup();
-    void update();
+    virtual void cleanup();
+    virtual void update();
 private:
     std::vector<Component*> components;
 };

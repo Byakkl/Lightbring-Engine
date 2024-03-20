@@ -13,4 +13,8 @@ void Scene::update(){
     //Update the objects in the scene
     for(auto sceneObject : sceneObjects)
         sceneObject->update();
+
+    //Update the cameras in the scene
+    for(auto sceneCamera : sceneCameras)
+        sceneCamera->update();
 }

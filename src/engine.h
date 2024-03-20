@@ -4,6 +4,7 @@
 #include "fileio/import_image.h"
 #include "scene.h"
 #include "structs.h"
+#include "camera.h"
 
 class LightbringEngine{
 public:
@@ -25,8 +26,14 @@ public:
     /// @return Returns a pointer to the imported data structure if successful. Nullptr if not
     Image* importImage(const char*, bool = true);
 
+    /// @brief Pushes the provided image's data to the GPU through the renderer
+    /// @param imageData Pointer to the image whose data is to be uploaded
+    /// @return True if successful or data is already uploaded
     bool uploadImage(Image*);
 
+    /// @brief Pushes the provided mesh's data to the GPU through the renderer
+    /// @param meshData Pointer to the mesh whose data is to be uploaded
+    /// @return True if successful or data is already uploaded
     bool uploadMesh(Mesh*);
 
     /// @brief Creates an instance of a mesh primitive
@@ -48,9 +55,12 @@ public:
 
     /// @brief Creates a material component
     /// @param albedo Sets the albedo to the provided image
-    /// @return Returns the created Material instance
+    /// @return Returns a pointer to the created Material instance
     Material* createMaterial(Image* = nullptr);
 
+    /// @brief Creates a camera object
+    /// @return Returns a pointer to the camera instance 
+    Camera* createCamera();
 private:
     //The active renderer instance
     Renderer* renderer;
@@ -67,4 +77,6 @@ private:
     std::vector<Object*> objects;
     //List of all created materials
     std::vector<Material*> materials;
+    //List of all create cameras
+    std::vector<Camera*> cameras;
 };

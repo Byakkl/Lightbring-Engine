@@ -68,6 +68,12 @@ void LightbringEngine::shutdown(){
         delete mesh;
     }
 
+    //Clean up any cameras
+    for(auto camera : cameras){
+        renderer->unregisterCamera(camera);
+        delete camera;
+    }
+
     //Clean up the renderer
     if(renderer != nullptr){
         try{
@@ -107,11 +113,32 @@ Mesh* LightbringEngine::importMesh(const char* filePath, bool pushToGPU){
 }
 
 bool LightbringEngine::uploadImage(Image* imageData){
-    renderer->uploadImage(imageData);
+    //If this image's data has already been registered with the renderer don't upload it again
+    if(imageData->rendererData != nullptr)
+        return true;
+
+    try{
+        renderer->uploadImage(imageData);
+    } catch(const std::exception& e){
+        std::cerr << e.what() << std::endl;
+        return false;
+    }
+    return true;
 }
 
 bool LightbringEngine::uploadMesh(Mesh* meshData){
-    renderer->uploadMesh(meshData);
+    //If this mesh's data has already been registered with the renderer don't upload it again
+    if(meshData->rendererData != nullptr)
+        return true;
+
+    try{
+        renderer->uploadMesh(meshData);
+    } 
+    catch(const std::exception& e){
+        std::cerr << e.what() << std::endl;
+        return false;
+    }
+    return true;
 }
 
 Mesh* LightbringEngine::createPrimitive(MeshPrimitive primitive){
@@ -156,6 +183,18 @@ Object* LightbringEngine::createObject(){
     return emptyObject;
 }
 
+void LightbringEngine::setActiveScene(Scene* scene){
+    //If there is an active scene, unload the data
+    if(activeScene != nullptr){
+        //TODO: Unload active scene data
+    }
+
+    //TODO: Load new scene data
+
+    //Track the active scene
+    activeScene = scene;
+}
+
 Material* LightbringEngine::createMaterial(Image* albedo){
     //Create the instance
     Material* material = new Material;
@@ -168,6 +207,17 @@ Material* LightbringEngine::createMaterial(Image* albedo){
 
     //Return the pointer
     return material;
+}
+
+Camera* LightbringEngine::createCamera(){
+    //Create the camera instance
+    Camera* camera = new Camera;
+
+    //Add it to the list of cameras
+    cameras.push_back(camera);
+
+    //Return the pointer
+    return camera;
 }
 
 /// @brief This will be removed but is currently used as a quick and dirty way to test the engine as an exe
@@ -207,10 +257,15 @@ int main() {
     sceneObj->addComponent(quadMesh);
     sceneObj->addComponent(material);
 
+    //Create a camera object
+    Camera* cameraObj = engine->createCamera();
+
     //Create a scene
     Scene* scene = engine->createScene();
     //Include the object in the scene
     scene->addSceneObject(sceneObj);
+    //Include the camera in the scene
+    scene->addSceneCamera(cameraObj);
     //Set the scene as active
     engine->setActiveScene(scene);
 

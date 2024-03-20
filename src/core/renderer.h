@@ -20,4 +20,9 @@ public:
     virtual void uploadMesh(Mesh*) = 0;
     //Unloads a mesh from GPU memory
     virtual void unloadMesh(Mesh*) = 0;
+
+    //Registers a camera to the renderer, creating relevant data structures
+    virtual void registerCamera(Camera*) = 0;
+    //Unregisters a camera from the renderer, cleaning up any created data structures
+    virtual void unregisterCamera(Camera*) = 0;
 };

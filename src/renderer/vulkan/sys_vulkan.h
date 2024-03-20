@@ -5,6 +5,7 @@
 #include "../../core/renderer.h"
 #include "../../core/structs.h"
 #include "structs_vulkan.h"
+#include "../../core/camera.h"
 
 class VulkanRenderer : public Renderer{
 public:
@@ -22,6 +23,10 @@ public:
     void uploadMesh(Mesh*) override;
 
     void unloadMesh(Mesh*) override;
+
+    void registerCamera(Camera*) override;
+
+    void unregisterCamera(Camera*) override;
 
 private:
     //Constant to define concurrent frame processing

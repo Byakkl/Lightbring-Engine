@@ -1,6 +1,14 @@
 #include "object.h"
 #include "structs.h"
 
+Object::Object(){
+    transform = new Transform();
+}
+
+Object::~Object(){
+    cleanup();
+}
+
 bool Object::addComponent(Component* component){
     for(auto component : components)
         if(component->type == component->type)
@@ -11,6 +19,9 @@ bool Object::addComponent(Component* component){
 }
 
 Component* Object::getComponent(const ComponentType componentType){
+    if(componentType == ComponentType::COMP_TRANSFORM)
+        return transform;
+
     for(auto component : components)
         if(component->type == componentType)
             return component;
@@ -19,6 +30,7 @@ Component* Object::getComponent(const ComponentType componentType){
 }
 
 void Object::cleanup(){
+    delete transform;
     components.clear();
 }
 
