@@ -3,17 +3,34 @@
 #include <vector>
 #include <glm/glm.hpp>
 
+enum ComponentType{
+    COMP_MATERIAL,
+    COMP_MODEL,
+};
+
+class Component{
+public:
+    ComponentType type;
+};
+
+/// @brief Material component. Holds references to images to be passed to shaders
+struct Material: Component{
+    Image* albedo;
+};
+
 struct Image{
     int width;
     int height;
     int channels;
-    unsigned char* data;
+    //Byte array of raw imported data
+    unsigned char* rawData;
+    //Void pointer used by the renderer to store its specific data container to reference when rendering
+    void* rendererData;
 
-    //Releases the CPU memory and clears the pointer
-    void clearData(){
-        if(data != nullptr)
-            free(data);
-        data = nullptr;
+    void releaseRawData(){
+        if(rawData != nullptr)
+            free(rawData);
+        rawData = nullptr;
     }
 };
 
@@ -23,14 +40,24 @@ struct Vertex {
     glm::vec2 uv;
 };
 
-struct Mesh{
+struct Mesh : Component{
     std::vector<Vertex> vertices;
     std::vector<int> indices;
-    unsigned char* data;
+    //Byte array of raw imported data
+    unsigned char* rawData;
+    //Void pointer used by the renderer to store its specific data container to reference when rendering
+    void* rendererData;
 
-    void clearData(){
-        if(data != nullptr)
-            free(data);
-        data = nullptr;
+    Mesh();
+    Mesh(std::vector<Vertex> _vertices, std::vector<int> _indices, unsigned char* _data){
+        vertices = _vertices;
+        indices = _indices;
+        rawData = _data;
+    }
+
+    void releaseRawData() {
+        if(rawData != nullptr)
+            free(rawData);
+        rawData = nullptr;
     }
 };

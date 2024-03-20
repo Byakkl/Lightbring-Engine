@@ -47,6 +47,7 @@ struct ImageData{
     /// @brief Cleans up the view, memory and image buffers
     /// @param device The logical device the image exists on
     void cleanup(VkDevice device){
+        vkDeviceWaitIdle(device);
         for(auto view : imageViews)
             vkDestroyImageView(device, view, nullptr);
         vkDestroyImage(device, image, nullptr);
@@ -69,6 +70,8 @@ struct MeshData{
     /// @brief Cleans up the vertex and index memory allocations and their associated access buffers
     /// @param device 
     void cleanup(VkDevice device){
+        vkDeviceWaitIdle(device);
+        
         vkDestroyBuffer(device, vertexBuffer, nullptr);
         vkFreeMemory(device, vertexMemory, nullptr);
 

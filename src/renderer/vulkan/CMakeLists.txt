@@ -8,15 +8,13 @@ set(RENDERER_VULKAN_SOURCES
 
 #Add the dependecies 
 add_subdirectory("G:/Coding Libraries/glfw-3.4" glfw)
-add_subdirectory("G:/Coding Libraries/glm-1.0.0" glm)
 
 #Create the library
 add_library(Renderer_Vulkan_Lib ${RENDERER_VULKAN_SOURCES})
 
 #Include the dependencies to the library
 target_include_directories(Renderer_Vulkan_Lib PRIVATE 
-    "C:/VulkanSDK/1.3.275.0/include"
-    "G:/Coding Libraries/glm-1.0.0")
+    "C:/VulkanSDK/1.3.275.0/include")
 
 #Link the dependent directory
 target_link_directories(Renderer_Vulkan_Lib PRIVATE 
@@ -26,4 +24,5 @@ target_link_directories(Renderer_Vulkan_Lib PRIVATE
 target_link_libraries(Renderer_Vulkan_Lib PRIVATE
     "vulkan-1.lib"    
     glfw
-    glm)
+    glm
+    Core_Lib)

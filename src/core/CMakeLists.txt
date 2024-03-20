@@ -1,10 +1,13 @@
 set(CORE_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/structs.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/primitives.h)
+    structs.h
+    primitives.h
+    object.cpp
+    scene.cpp
+    renderer.h)
 
-add_library(Core_Lib INTERFACE)
+add_library(Core_Lib ${CORE_SOURCES})
 
-target_sources(Core_Lib INTERFACE ${CORE_SOURCES})
-
-target_include_directories(Core_Lib INTERFACE
-    "G:/Coding Libraries/glm-1.0.0")
+#Link the dependent libraries
+target_link_libraries(Core_Lib PRIVATE
+    glm
+    )

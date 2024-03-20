@@ -18,17 +18,37 @@
 #include "util_vulkan.h"
 #include "../../fileio/util_io.h"
 #include "structs_model.h"
+#include "../../core/structs.h"
 
 void VulkanRenderer::initialize(){
     initWindow();
     initVulkan();
 }
 
-bool VulkanRenderer::render(){
+bool VulkanRenderer::render(std::vector<Object*> objects){
     if(glfwWindowShouldClose(window))
         return false;
 
     glfwPollEvents();
+
+    //Wait for the 
+    vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+    VkFence renderFence;
+    size_t arrSize = objects.size();
+    for(int i = 0; i < arrSize; i += MAX_MODEL_DESCRIPTOR_SETS){
+        //Wait for Fence to indicate renders are done
+        vkWaitForFences(device, 1, &renderFence, VK_TRUE, UINT64_MAX);
+        //TODO: Update DescriptorSets
+        for(int idx = 0; idx < MAX_MODEL_DESCRIPTOR_SETS && (i * MAX_MODEL_DESCRIPTOR_SETS + idx) < arrSize; idx++)
+            updateDescriptorSet(modelDescriptorSets[idx], objects[i * MAX_MODEL_DESCRIPTOR_SETS + idx]);
+        //TODO: Record command buffer
+        //Submit the render buffer to queue
+        if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, renderFence) != VK_SUCCESS)
+            throw std::runtime_error("Failed to submit draw command buffer");
+    }
+    //Wait for the final render to finish
+    vkWaitForFences(device, 1, &renderFence, VK_TRUE, UINT64_MAX);
+    //TODO: Present the frame
     drawFrame();
     
     return true;
@@ -44,10 +64,6 @@ void VulkanRenderer::cleanup(){
     //Clean up the texture sampler
     vkDestroySampler(device, textureSampler, nullptr);
 
-    //Clean up the images
-    for(auto image : images)
-        image->cleanup(device);
-
     //Clean up the uniform buffers
     for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
         vkDestroyBuffer(device, uniformBuffers[i], nullptr);
@@ -59,9 +75,6 @@ void VulkanRenderer::cleanup(){
 
     //Clean up the descriptor set layout
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-
-    for(auto mesh : meshes)
-        mesh->cleanup(device);
 
     //Clean up sync objects
     for(int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
@@ -103,17 +116,50 @@ void VulkanRenderer::cleanup(){
     glfwTerminate();
 }
 
-void VulkanRenderer::uploadImage(const Image* imageData){
-    ImageData image;
-    createTextureImage(imageData, &image);
+void VulkanRenderer::uploadImage(Image* image){
+    //Create the container for the Vulkan handles
+    ImageData imageData;
+    //Create the Vulkan image
+    createTextureImage(image, &imageData);
     //Create the image view for the texture
-    createImageView(&image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+    createImageView(&imageData, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    //Pass the Vulkan handle container to the image object
+    image->rendererData = &imageData;
 }
 
-void VulkanRenderer::uploadMesh(const Mesh* meshData){
-    MeshData mesh;
-    createVertexBuffer(meshData, &mesh);
-    createIndexBuffer(meshData, &mesh);
+void VulkanRenderer::unloadImage(Image* image){
+    if(image->rendererData == nullptr)
+        return;
+
+    //Cast to the Vulkan data container and invoke the cleanup method to release the memory
+    static_cast<ImageData*>(image->rendererData)->cleanup(device);
+
+    //Null out the pointer as all data is cleaned
+    image->rendererData = nullptr;
+}
+
+void VulkanRenderer::uploadMesh(Mesh* mesh){
+    //Create the container for the Vulkan handles
+    MeshData meshData;
+    //Create a vertex buffer
+    createVertexBuffer(mesh, &meshData);
+    //Create an index buffer
+    createIndexBuffer(mesh, &meshData);
+
+    //Pass the Vulkan handle container to the mesh object
+    mesh->rendererData = &meshData;
+}
+
+void VulkanRenderer::unloadMesh(Mesh* mesh){
+    if(mesh->rendererData == nullptr)
+        return;
+
+    //Cast to the Vulkan data container and invoke the cleanup method to release the memory
+    static_cast<MeshData*>(mesh->rendererData)->cleanup(device);
+
+    //Null out the pointer as all data is cleaned
+    mesh->rendererData = nullptr;
 }
 
 std::vector<const char*> VulkanRenderer::getRequiredExtensions(){
@@ -201,10 +247,10 @@ void VulkanRenderer::createInstance(){
     //Create an info structure about the application; technically optional
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "Hello Triangle";
-    appInfo.applicationVersion = VK_MAKE_VERSION(1,0,0);
-    appInfo.pEngineName = "No Engine";
-    appInfo.engineVersion = VK_MAKE_VERSION(1,0,0);
+    appInfo.pApplicationName = "Application Name";
+    appInfo.applicationVersion = VK_MAKE_VERSION(0,0,1);
+    appInfo.pEngineName = "Lightbring Engine";
+    appInfo.engineVersion = VK_MAKE_VERSION(0,1,0);
     appInfo.apiVersion = VK_API_VERSION_1_0;
 
     //Required structure to inform the Vulkan driver about gloabl extensions and validation layers
@@ -597,7 +643,7 @@ void VulkanRenderer::createTextureImage(const Image* imageData, ImageData* outpu
     //Determine the size of the image in bytes
     VkDeviceSize imageSize = imageData->width * imageData->height * 4;
 
-    if(!imageData->data)
+    if(!imageData->rawData)
         throw std::runtime_error("Failed to load texture image");
 
     //Create the staging buffer to move the data to device local memory
@@ -612,7 +658,7 @@ void VulkanRenderer::createTextureImage(const Image* imageData, ImageData* outpu
     //Transfer the image data into the staging buffer
     void* data;
     vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, imageData->data, static_cast<size_t>(imageSize));
+    memcpy(data, imageData->rawData, static_cast<size_t>(imageSize));
     vkUnmapMemory(device, stagingBufferMemory);
 
     createImage(imageData->width,
@@ -638,11 +684,32 @@ void VulkanRenderer::createTextureImage(const Image* imageData, ImageData* outpu
 
 }
 
-void VulkanRenderer::updateDescriptorSets(){
+void VulkanRenderer::updateDescriptorSet(VkDescriptorSet& descriptorSet, const Object* object){
+    //Container for all updates
+    std::vector<VkWriteDescriptorSet> descriptorWrites;
 
+    //Create descriptor write for mesh
+
+    //Create descriptor write for material
 }
 
-void VulkanRenderer::createDescriptorSets(VkDescriptorPool descriptorPool, uint32_t numberOfSets, std::vector<VkDescriptorSetLayout> descriptorLayouts, std::vector<VkDescriptorSet> descriptorSets){
+VkWriteDescriptorSet VulkanRenderer::createDescriptorWrite(VkDescriptorSet& descriptorSet, int binding, int arrayElement, VkDescriptorType descriptorType,
+    int descriptorCount, VkDescriptorBufferInfo* bufferInfo, VkDescriptorImageInfo* imageInfo, VkBufferView* texelView){
+    VkWriteDescriptorSet write;
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = descriptorSet;
+    write.dstBinding = binding;
+    write.dstArrayElement = arrayElement;
+    write.descriptorType = descriptorType;
+    write.descriptorCount = descriptorCount;
+    write.pBufferInfo = bufferInfo;
+    write.pImageInfo = imageInfo;
+    write.pTexelBufferView = texelView;
+
+    return write;
+}
+
+void VulkanRenderer::createDescriptorSets(VkDescriptorPool descriptorPool, uint32_t numberOfSets, std::vector<VkDescriptorSetLayout> descriptorLayouts, std::vector<VkDescriptorSet>& descriptorSets){
     //There must be a descirptor layout entry for each descriptor set that is going to be created
     if(descriptorLayouts.size() != numberOfSets)
         throw std::runtime_error("Failed to allocate descriptor sets. Layout array size does not match number of sets to create");

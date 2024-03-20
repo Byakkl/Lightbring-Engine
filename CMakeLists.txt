@@ -17,8 +17,7 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 set(BASE_SOURCES
-    src/engine.cpp
-    src/renderer/renderer.h)
+    src/engine.cpp)
 
 #Add the Core directory
 add_subdirectory("src/core" core)
@@ -26,6 +25,8 @@ add_subdirectory("src/core" core)
 add_subdirectory("src/fileio" fileio)
 #Add the Vulkan renderer directory
 add_subdirectory("src/renderer/vulkan" renderer_vulkan)
+#Add the GLM Library directory
+add_subdirectory("G:/Coding Libraries/glm-1.0.0" glm)
 
 #Add an exe for the engine
 add_executable(LightbringEngine ${BASE_SOURCES})
@@ -44,6 +45,6 @@ target_link_libraries(LightbringEngine PRIVATE
     Core_Lib
     Renderer_Vulkan_Lib
     File_IO_Lib
-    "vulkan-1.lib"  
     glfw
+    glm
 )

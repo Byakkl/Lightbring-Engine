@@ -3,7 +3,7 @@
 #include <iostream>
 #include "engine.h"
 #include "fileio/import_image.h"
-#include "core/primitives.h"
+#include "primitives.h"
 
 #ifdef RENDERER_VULKAN
 #include "renderer/vulkan/sys_vulkan.h"
@@ -33,6 +33,13 @@ bool LightbringEngine::start(){
 bool LightbringEngine::update(){
     //Run per-frame engine code
     try{
+        //If there is no active scene skip updating
+        if(activeScene == nullptr)
+            return true;
+        
+        //Update the active scene
+        activeScene->update();
+
         //Update the renderer and render the next frame
         isRunning = renderer->render();
     } catch (const std::exception& e){
@@ -47,6 +54,20 @@ void LightbringEngine::shutdown(){
     //Turn off the running flag
     isRunning = false;
 
+    //Clean up any image data
+    for(auto image : images){
+        renderer->unloadImage(image);
+        image->releaseRawData();
+        delete image;
+    }
+
+    //Clean up any model data
+    for(auto mesh : meshes){
+        renderer->unloadMesh(mesh);
+        mesh->releaseRawData();
+        delete mesh;
+    }
+
     //Clean up the renderer
     if(renderer != nullptr){
         try{
@@ -56,14 +77,6 @@ void LightbringEngine::shutdown(){
         }
         delete renderer;
     }
-
-    //Clean up any image data
-    for(auto image : images){
-        image->clearData();
-        delete image;
-    }
-
-    //Clean up any model data
 }
 
 Image* LightbringEngine::importImage(const char* filePath, bool pushToGPU){
@@ -75,7 +88,7 @@ Image* LightbringEngine::importImage(const char* filePath, bool pushToGPU){
         //If the data is to be uploaded immediately; do so and clear the CPU data
         if(pushToGPU){
             renderer->uploadImage(importedData);
-            importedData->clearData();
+            importedData->releaseRawData();
         }
 
         //Add the data structure to the engine's tracker
@@ -88,27 +101,27 @@ Image* LightbringEngine::importImage(const char* filePath, bool pushToGPU){
     return importedData;
 }
 
-Mesh* LightbringEngine::importModel(const char* filePath, bool pushToGPU){
+Mesh* LightbringEngine::importMesh(const char* filePath, bool pushToGPU){
     std::cerr << "Import model not yet implemented" << std::endl;
     return nullptr;
 }
 
-bool LightbringEngine::uploadImage(const Image* imageData){
+bool LightbringEngine::uploadImage(Image* imageData){
     renderer->uploadImage(imageData);
 }
 
-bool LightbringEngine::uploadMesh(const Mesh* meshData){
+bool LightbringEngine::uploadMesh(Mesh* meshData){
     renderer->uploadMesh(meshData);
 }
 
-Mesh* LightbringEngine::createPrimitive(const MeshPrimitive primitive){
+Mesh* LightbringEngine::createPrimitive(MeshPrimitive primitive){
     //Container for the copy-constructed instance
     Mesh output;
 
     //Determine the type of primitive based on input value
     switch (primitive)
     {
-    case MeshPrimitive::Quad:
+    case MeshPrimitive::PRIM_QUAD:
         output = quad;
     
     default:
@@ -119,6 +132,42 @@ Mesh* LightbringEngine::createPrimitive(const MeshPrimitive primitive){
     meshes.push_back(&output);
     //Return a pointer to the instance
     return &output;
+}
+
+Scene* LightbringEngine::createScene(){
+    //Create the instance
+    Scene* emptyScene = new Scene;
+
+    //Add it to the list of scenes
+    scenes.push_back(emptyScene);
+
+    //Return the pointer
+    return emptyScene;
+}
+
+Object* LightbringEngine::createObject(){
+    //Create the instance
+    Object* emptyObject = new Object();
+
+    //Add it to the list of objects
+    objects.push_back(emptyObject);
+
+    //Return the pointer
+    return emptyObject;
+}
+
+Material* LightbringEngine::createMaterial(Image* albedo){
+    //Create the instance
+    Material* material = new Material;
+
+    //Assign the values
+    material->albedo = albedo;
+
+    //Add it to the list of materials
+    materials.push_back(material);
+
+    //Return the pointer
+    return material;
 }
 
 /// @brief This will be removed but is currently used as a quick and dirty way to test the engine as an exe
@@ -143,12 +192,27 @@ int main() {
         return EXIT_FAILURE;
     }
 
+    Material* material = engine->createMaterial(testImage);
+
     //Create an instance of a quad primitive
-    Mesh* quadMesh = engine->createPrimitive(MeshPrimitive::Quad);
+    Mesh* quadMesh = engine->createPrimitive(MeshPrimitive::PRIM_QUAD);
     //Upload the mesh data to the GPU
     engine->uploadMesh(quadMesh);
-    //Release the CPU memory
-    quadMesh->clearData();
+    //Release the raw data from memory
+    quadMesh->releaseRawData();
+
+    //Create an object
+    Object* sceneObj = engine->createObject();
+    //Add components to the object
+    sceneObj->addComponent(quadMesh);
+    sceneObj->addComponent(material);
+
+    //Create a scene
+    Scene* scene = engine->createScene();
+    //Include the object in the scene
+    scene->addSceneObject(sceneObj);
+    //Set the scene as active
+    engine->setActiveScene(scene);
 
 
     //Run the update loop. The condition would likely be different in a game that's using the engine

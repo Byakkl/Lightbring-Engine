@@ -1,18 +1,23 @@
 #pragma once
 
-#include "../core/structs.h"
+#include "structs.h"
 
 class Renderer {
 public:
     //Pure virtual method used to initialize a renderer
     virtual void initialize() = 0;
     //Pure virtual method used to run the renderer
-    virtual bool render() = 0;
+    virtual bool render(std::vector<Object*>) = 0;
     //Pure virtual method used to clean up the renderer
     virtual void cleanup() = 0;
 
     //Moves an image's data to the GPU
-    virtual void uploadImage(const Image*) = 0;
+    virtual void uploadImage(Image*) = 0;
+    //Unloads an image from GPU memory
+    virtual void unloadImage(Image*) = 0;
+
     //Moves a mesh's data to the GPU
-    virtual void uploadMesh(const Mesh*) = 0;
+    virtual void uploadMesh(Mesh*) = 0;
+    //Unloads a mesh from GPU memory
+    virtual void unloadMesh(Mesh*) = 0;
 };

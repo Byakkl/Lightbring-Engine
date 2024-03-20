@@ -2,7 +2,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vector>
-#include "../renderer.h"
+#include "../../core/renderer.h"
 #include "../../core/structs.h"
 #include "structs_vulkan.h"
 
@@ -11,13 +11,17 @@ public:
     /// @brief Implementation of Renderer pure virtual method
     void initialize() override;
 
-    bool render() override;
+    bool render(std::vector<Object*>) override;
 
     void cleanup() override;
 
-    void uploadImage(const Image*) override;
+    void uploadImage(Image*) override;
 
-    void uploadMesh(const Mesh*) override;
+    void unloadImage(Image*) override;
+
+    void uploadMesh(Mesh*) override;
+
+    void unloadMesh(Mesh*) override;
 
 private:
     //Constant to define concurrent frame processing
@@ -107,16 +111,12 @@ private:
     uint32_t currentFrame = 0;
     //Stores flag to track if a resize has occurred
     bool framebufferResized = false;
-    //List of Mesh data set pointers
-    std::vector<MeshData*> meshes;
     //List of handles to unifrom buffers
     std::vector<VkBuffer> uniformBuffers;
     //List of handles to uniform buffer memory
     std::vector<VkDeviceMemory> uniformBuffersMemory;
     //List of handles to mapped uniform buffers
     std::vector<void*> uniformBuffersMapped;
-    //List of Image data set pointers
-    std::vector<ImageData*> images;
     //Stores the texture sampler handle
     VkSampler textureSampler;
     //Stores depth image handles
@@ -286,7 +286,11 @@ private:
     /// @param numberOfSets The number of sets to be allocated
     /// @param descriptorLayouts The layouts of each of the sets to be allocated
     /// @param descriptorSets The vector to resize and populate the new set handles into
-    void createDescriptorSets(VkDescriptorPool, uint32_t, std::vector<VkDescriptorSetLayout>, std::vector<VkDescriptorSet>);
+    void createDescriptorSets(VkDescriptorPool, uint32_t, std::vector<VkDescriptorSetLayout>, std::vector<VkDescriptorSet>&);
+
+    void updateDescriptorSet(VkDescriptorSet&, const Object*);
+
+    VkWriteDescriptorSet createDescriptorWrite(VkDescriptorSet&, int, int, VkDescriptorType, int, VkDescriptorBufferInfo* = nullptr, VkDescriptorImageInfo* = nullptr, VkBufferView* = nullptr);
 
     /// @brief Creates a texture from an image source
     void createTextureImage(const Image*, ImageData*);

@@ -3,7 +3,7 @@
 #include "structs.h"
 
 enum MeshPrimitive{
-    Quad
+    PRIM_QUAD
 };
 
 const Mesh quad{
@@ -15,5 +15,6 @@ const Mesh quad{
     },
     {
         0, 1, 2, 2, 3, 0
-    }
+    },
+    nullptr
 };
