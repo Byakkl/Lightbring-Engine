@@ -1,11 +1,15 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
+2024-03-30
+- VULKAN: Add support for registering and unregistering cameras
+- VULKAN: Add support for creating and updating camera descriptor sets when un/registering cameras
+- VULKAN: Add support for creating and updating object descriptor sets
+- ENGINE: Add flow for registering cameras and objects with the renderer when activating a scene
+- ENGINE: Add flow for unregistering cameras and objects from the renderer when activating a different scene 
+
 2024-03-11 - 
 - ENGINE: Refactor out references to importers and hard coded values from the Vulkan renderer implementation
-- CLEANUP: Move importers to their own areas in the `fileio` directory
-- ENGINE: Set up defines for each major system in the API. Ie Vulkan, OBJ Import, Image Import, and anything else that could be defined as `optional`
-- CMAKE: Set up conditional build defines that propagate preprocessor defines using `add_compile_definitions` for each of the optional systems
 
 TODO:
 - VULKAN: Implement OBJ model imports
@@ -24,6 +28,22 @@ TODO:
 - ENGINE: Create an API .h that can be used externally for when the engine is built as a library and not an executable
 
 DONE:
+2024-03-26 - 2024-03-30
+- VULKAN: Add support for creating textures when requested by the engine
+- VULKAN: Add transform and camera render data structures
+2024-03-19 - 2024-03-20
+- ENGINE: Add transform component to all objects for tracking their position in a scene
+- ENGINE: Add camera tracking to scenes
+- ENGINE: Add base Camera class for controlling rendering at an engine level
+2024-03-17 - 2024-03-19
+- ENGINE: Update engine update loop to tell scenes to update instead of individual objects
+- ENGINE: Add base scene class to contain objects
+- ENGINE: Add base object class to contain various components
+2024-03-11 - 2024-03-17
+- ENGINE: Add base Renderer class for all renderers to inherit from
+- CLEANUP: Move importers to their own areas in the `fileio` directory
+- ENGINE: Set up defines for each major system in the API. Ie Vulkan, OBJ Import, Image Import, and anything else that could be defined as `optional`
+- CMAKE: Set up conditional build defines that propagate preprocessor defines using `add_compile_definitions` for each of the optional systems
 2024-03-08 - 2024-03-11
 - VULKAN: Implement depth buffering
 2024-03-04 - 2024-03-08

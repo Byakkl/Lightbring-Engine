@@ -57,25 +57,48 @@ struct ImageData{
 
 //Container for a set of Mesh data. Currently Vertex and Index data is split into two device memory allocations
 struct MeshData{
-    //Stores the handle to the device memory allocated for vertices
-    VkDeviceMemory vertexMemory;
-    //Stores a buffer region for the vertexBufferMemory
-    VkBuffer vertexBuffer;
+    //Buffer set for mesh vertices
+    BufferSet vertexBufferSet;
 
-    //Stores the handle to the device memory allocated for indices
-    VkDeviceMemory indexMemory;
-    //Stores a buffer region for the indexBufferMemory
-    VkBuffer indexBuffer;
+    //Buffer set for mesh indices
+    BufferSet indexBufferSet;
 
     /// @brief Cleans up the vertex and index memory allocations and their associated access buffers
     /// @param device 
     void cleanup(VkDevice device){
-        vkDeviceWaitIdle(device);
-        
-        vkDestroyBuffer(device, vertexBuffer, nullptr);
-        vkFreeMemory(device, vertexMemory, nullptr);
+        vertexBufferSet.cleanup(device);
+        indexBufferSet.cleanup(device);
+    }
+};
 
-        vkDestroyBuffer(device, indexBuffer, nullptr);
-        vkFreeMemory(device, indexMemory, nullptr);
+struct TransformData{
+    //Buffer set for transform matrix
+    BufferSet transformBufferSet;
+
+    void cleanup(VkDevice device){
+        transformBufferSet.cleanup(device);
+    }
+};
+
+struct CameraData{
+    //Buffer set for camera matrices
+    BufferSet cameraBufferSet;
+
+    void cleanup(VkDevice device){
+        cameraBufferSet.cleanup(device);
+    }
+};
+
+struct BufferSet{
+    //Stores the buffer handle
+    VkBuffer buffer;
+    //Stores the device memory handle
+    VkDeviceMemory memory;
+
+    void cleanup(VkDevice device){
+        vkDeviceWaitIdle(device);
+
+        vkDestroyBuffer(device, buffer, nullptr);
+        vkFreeMemory(device, memory, nullptr);
     }
 };

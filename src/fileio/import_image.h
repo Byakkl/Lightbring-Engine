@@ -4,11 +4,11 @@
 #include <stb_image.h>
 #include "structs.h"
 
-static Image* importImageFile(const char* filePath){
-    Image imageData;
-    imageData.data = stbi_load(filePath, &imageData.width, &imageData.height, &imageData.channels, STBI_rgb_alpha);
+static Texture* importImageFile(const char* filePath){
+    Texture imageData;
+    imageData.rawData = stbi_load(filePath, &imageData.width, &imageData.height, &imageData.channels, STBI_rgb_alpha);
     
-    if(!imageData.data)
+    if(!imageData.rawData)
         throw std::runtime_error("Failed to load texture image");
 
     return &imageData;

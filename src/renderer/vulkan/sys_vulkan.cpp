@@ -25,23 +25,41 @@ void VulkanRenderer::initialize(){
     initVulkan();
 }
 
-bool VulkanRenderer::render(std::vector<Object*> objects){
+bool VulkanRenderer::render(Camera* camera, std::vector<Object*> objects){
     if(glfwWindowShouldClose(window))
         return false;
 
     glfwPollEvents();
 
-    //Wait for the 
+    //Wait for the presentation fence for the frame to complete
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
+
+    //TODO: Promote this to class member
+    //Create the batch render fence
     VkFence renderFence;
+    //TODO: Move this to sync object creation method
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    vkCreateFence(device, &fenceInfo, nullptr, &renderFence);
+
+    //Update camera buffers
+
     size_t arrSize = objects.size();
-    for(int i = 0; i < arrSize; i += MAX_MODEL_DESCRIPTOR_SETS){
+    std::vector<VkWriteDescriptorSet> descriptorWrites;
+    for(int i = 0; i < arrSize; i += MAX_OBJECT_DESCRIPTOR_SETS){
         //Wait for Fence to indicate renders are done
         vkWaitForFences(device, 1, &renderFence, VK_TRUE, UINT64_MAX);
-        //TODO: Update DescriptorSets
-        for(int idx = 0; idx < MAX_MODEL_DESCRIPTOR_SETS && (i * MAX_MODEL_DESCRIPTOR_SETS + idx) < arrSize; idx++)
-            updateDescriptorSet(modelDescriptorSets[idx], objects[i * MAX_MODEL_DESCRIPTOR_SETS + idx]);
+        
+        //Generate Descriptor Set updates
+        for(int idx = 0; idx < MAX_OBJECT_DESCRIPTOR_SETS && (i * MAX_OBJECT_DESCRIPTOR_SETS + idx) < arrSize; idx++)
+            updateDescriptorSet(descriptorWrites, objectDescriptorSets[idx], objects[i * MAX_OBJECT_DESCRIPTOR_SETS + idx]);
+        
+        //Apply the updates
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()),descriptorWrites.data(), 0, nullptr);
+        
         //TODO: Record command buffer
+
         //Submit the render buffer to queue
         if(vkQueueSubmit(graphicsQueue, 1, &submitInfo, renderFence) != VK_SUCCESS)
             throw std::runtime_error("Failed to submit draw command buffer");
@@ -116,7 +134,7 @@ void VulkanRenderer::cleanup(){
     glfwTerminate();
 }
 
-void VulkanRenderer::uploadImage(Image* image){
+void VulkanRenderer::createTexture(Texture* image){
     //Create the container for the Vulkan handles
     ImageData imageData;
     //Create the Vulkan image
@@ -128,7 +146,7 @@ void VulkanRenderer::uploadImage(Image* image){
     image->rendererData = &imageData;
 }
 
-void VulkanRenderer::unloadImage(Image* image){
+void VulkanRenderer::unloadTexture(Texture* image){
     if(image->rendererData == nullptr)
         return;
 
@@ -160,6 +178,31 @@ void VulkanRenderer::unloadMesh(Mesh* mesh){
 
     //Null out the pointer as all data is cleaned
     mesh->rendererData = nullptr;
+}
+
+void VulkanRenderer::registerCamera(Camera* camera){
+    //If there is already data tracked then this camera is already registered
+    if(camera->rendererData != nullptr)
+        return;
+    
+    //TODO: Allocate buffer data set
+    //TODO: Allocate descriptor set
+    //TODO: Assign CameraData to camera->rendererData
+}
+
+void VulkanRenderer::unregisterCamera(Camera* camera){
+    //If there is no data tracked then this camera is already unregistered
+    if(camera->rendererData == nullptr)
+        return;
+    
+    //TODO: Free descriptor set from pool
+
+
+    //Free buffer data
+    ((CameraData*)camera->rendererData)->cleanup(device);
+
+    //Clear the pointer to the cleared data structure
+    camera->rendererData = nullptr;
 }
 
 std::vector<const char*> VulkanRenderer::getRequiredExtensions(){
@@ -311,8 +354,28 @@ void VulkanRenderer::initVulkan(){
     createFrameBuffers();
     createTextureSampler();
     createUniformBuffers();
-    createDescriptorPool();
-    createDescriptorSets(modelDescriptorPool, MAX_MODEL_DESCRIPTOR_SETS, std::vector<VkDescriptorSetLayout>{MAX_MODEL_DESCRIPTOR_SETS,modelDescriptorSetLayout}, modelDescriptorSets);
+
+    //Create the descriptor pool for object descriptor sets
+    createDescriptorPool(objectDescriptorPool, MAX_OBJECT_DESCRIPTOR_SETS, std::vector<VkDescriptorPoolSize>{
+        //One transform uniform per object descriptor set
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        static_cast<uint32_t>(MAX_OBJECT_DESCRIPTOR_SETS)},
+        //One texture sampler per object descriptor set
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        static_cast<uint32_t>(MAX_OBJECT_DESCRIPTOR_SETS)}
+    });
+    //Pre-allocate the descriptor sets for objects in the scene
+    //createDescriptorSets(objectDescriptorPool, MAX_MODEL_DESCRIPTOR_SETS, std::vector<VkDescriptorSetLayout>{MAX_MODEL_DESCRIPTOR_SETS, objectDescriptorSetLayout}, objectDescriptorSets);
+
+    //Create the descriptor pool for camera descriptor sets
+    createDescriptorPool(cameraDescriptorPool, MAX_CAMERA_DESCRIPTOR_SETS, std::vector<VkDescriptorPoolSize>{
+        //One matrix uniform buffer per camera descriptor set
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        static_cast<uint32_t>(MAX_CAMERA_DESCRIPTOR_SETS)}
+    });
+    
+    //createDescriptorSets(cameraDescriptorPool, MAX_CAMERA_DESCRIPTOR_SETS, std::vector<VkDescriptorSetLayout>{MAX_CAMERA_DESCRIPTOR_SETS, cameraDescriptorSetLayout}, cameraDescriptorSets);
+
     createCommandBuffers(graphicsCommandPool, graphicsCommandBuffers);
     createCommandBuffers(transferCommandPool, transferCommandBuffers);
     createSyncObjects();
@@ -638,13 +701,12 @@ void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat forma
     vkBindImageMemory(device, imageData->image, imageData->memory, 0);
 }
 
-void VulkanRenderer::createTextureImage(const Image* imageData, ImageData* output){
-    
+void VulkanRenderer::createTextureImage(const Texture* texture, ImageData* output){
     //Determine the size of the image in bytes
-    VkDeviceSize imageSize = imageData->width * imageData->height * 4;
+    VkDeviceSize imageSize = texture->width * texture->height * 4;
 
-    if(!imageData->rawData)
-        throw std::runtime_error("Failed to load texture image");
+    if(imageSize == 0)
+        throw std::runtime_error("Faield to create texture. Size is 0");
 
     //Create the staging buffer to move the data to device local memory
     VkBuffer stagingBuffer;
@@ -655,14 +717,16 @@ void VulkanRenderer::createTextureImage(const Image* imageData, ImageData* outpu
         stagingBuffer,
         stagingBufferMemory);
     
-    //Transfer the image data into the staging buffer
-    void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, imageData->rawData, static_cast<size_t>(imageSize));
-    vkUnmapMemory(device, stagingBufferMemory);
+    //Transfer the image data into the staging buffer if any is present
+    if(!texture->rawData){
+        void* data;
+        vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+        memcpy(data, texture->rawData, static_cast<size_t>(imageSize));
+        vkUnmapMemory(device, stagingBufferMemory);
+    }
 
-    createImage(imageData->width,
-    imageData->height,
+    createImage(texture->width,
+    texture->height,
     VK_FORMAT_R8G8B8A8_SRGB,
     VK_IMAGE_TILING_OPTIMAL,
     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -673,7 +737,7 @@ void VulkanRenderer::createTextureImage(const Image* imageData, ImageData* outpu
     transitionImageLayout(output->image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     //Copy the staging buffer data into the image
-    copyBufferToImage(stagingBuffer, output->image, static_cast<uint32_t>(imageData->width), static_cast<uint32_t>(imageData->height));
+    copyBufferToImage(stagingBuffer, output->image, static_cast<uint32_t>(texture->width), static_cast<uint32_t>(texture->height));
 
     //Transition the image to a shader read only layout
     transitionImageLayout(output->image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -681,16 +745,32 @@ void VulkanRenderer::createTextureImage(const Image* imageData, ImageData* outpu
     //Clean up the staging buffer
     vkDestroyBuffer(device, stagingBuffer, nullptr);
     vkFreeMemory(device, stagingBufferMemory, nullptr);
-
 }
 
-void VulkanRenderer::updateDescriptorSet(VkDescriptorSet& descriptorSet, const Object* object){
-    //Container for all updates
-    std::vector<VkWriteDescriptorSet> descriptorWrites;
-
-    //Create descriptor write for mesh
-
+void VulkanRenderer::updateDescriptorSet(std::vector<VkWriteDescriptorSet>& descriptorWrites, VkDescriptorSet& descriptorSet, Object* object){
+    //Create descriptor write for transform
+    Component* transformComp = object->getComponent(ComponentType::COMP_TRANSFORM);
+    if(transformComp){
+        TransformData* transformData = (TransformData*)(((Transform*)transformComp)->rendererData);
+        VkDescriptorBufferInfo bufferInfo;
+        bufferInfo.buffer = transformData->transformMatrixBuffer;
+        bufferInfo.offset = 0;
+        //16 float entries for mat4;
+        bufferInfo.range = 16;
+        createDescriptorWrite(descriptorSet, 0, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &bufferInfo);
+    }
+    
     //Create descriptor write for material
+    Component* matComp = object->getComponent(ComponentType::COMP_MATERIAL);
+    if(matComp){
+        //Albedo
+        ImageData* albedoData = (ImageData*)(((Material*)matComp)->albedo->rendererData);
+        VkDescriptorImageInfo imageInfo;
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
+        imageInfo.imageView = albedoData->imageViews[0];
+        imageInfo.sampler = textureSampler;
+        createDescriptorWrite(descriptorSet, 2, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, nullptr, &imageInfo);
+    }
 }
 
 VkWriteDescriptorSet VulkanRenderer::createDescriptorWrite(VkDescriptorSet& descriptorSet, int binding, int arrayElement, VkDescriptorType descriptorType,
@@ -737,76 +817,21 @@ void VulkanRenderer::createDescriptorSets(VkDescriptorPool descriptorPool, uint3
     }
 }
 
-void VulkanRenderer::createDescriptorSets(){
-    //Populate the descriptors
-    for(size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = uniformBuffers[i];
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject);
-
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = textureImageView;
-        imageInfo.sampler = textureSampler;
-
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
-
-        //Uniform buffer descriptor set
-        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        //Specify the descriptor set to write to
-        descriptorWrites[0].dstSet = descriptorSets[i];
-        //Specify the binding of the descriptor set
-        descriptorWrites[0].dstBinding = 0;
-        //Specify the first index in the array that is to be updated
-        descriptorWrites[0].dstArrayElement = 0;
-        //Specify the type of the descriptor elements that are being updated
-        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        //Specify how many descriptors are to be updated
-        descriptorWrites[0].descriptorCount = 1;
-        //Specify the buffer info for descriptors that update buffer data
-        descriptorWrites[0].pBufferInfo = &bufferInfo;
-        //Specify the image info for descriptors that update image data 
-        descriptorWrites[0].pImageInfo = nullptr;
-        //Specify the texel view for descriptors that update buffer views
-        descriptorWrites[0].pTexelBufferView = nullptr;
-
-        //Image descriptor set
-        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = descriptorSets[i];
-        descriptorWrites[1].dstBinding = 1;
-        descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pImageInfo = &imageInfo;
-
-        //Apply the updates
-        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-    }
-}
-
-void VulkanRenderer::createDescriptorPool(){
-    //Specify the size of the pools to be created
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
+void VulkanRenderer::createDescriptorPool(VkDescriptorPool& descriptorPool, int maxDescriptorSets, std::vector<VkDescriptorPoolSize> poolSizes){
     //Generate creation info
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
     //Specify the maximum number of sets that can be allocated
-    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    poolInfo.maxSets = static_cast<uint32_t>(maxDescriptorSets);
 
     if(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create descriptor pool");
 }
 
 void VulkanRenderer::createUniformBuffers(){
-    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject_Camera);
 
     uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
     uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
@@ -2018,7 +2043,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage){
     //Find the difference between static start time and current time
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
-    UniformBufferObject ubo{};
+    UniformBufferObject_Camera ubo{};
     //Using an identity matrix, rotate 90 degrees per second around the z axis
     ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     //Eye position, center position, up axis

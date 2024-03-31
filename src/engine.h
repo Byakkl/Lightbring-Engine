@@ -24,12 +24,12 @@ public:
     /// @param filePath The file path of the image to be imported
     /// @param pushToGPU If true the image data will be pushed to the GPU immediately and the CPU memory will be released
     /// @return Returns a pointer to the imported data structure if successful. Nullptr if not
-    Image* importImage(const char*, bool = true);
+    Texture* importImage(const char*, bool = true);
 
     /// @brief Pushes the provided image's data to the GPU through the renderer
     /// @param imageData Pointer to the image whose data is to be uploaded
     /// @return True if successful or data is already uploaded
-    bool uploadImage(Image*);
+    bool uploadImage(Texture*);
 
     /// @brief Pushes the provided mesh's data to the GPU through the renderer
     /// @param meshData Pointer to the mesh whose data is to be uploaded
@@ -56,17 +56,23 @@ public:
     /// @brief Creates a material component
     /// @param albedo Sets the albedo to the provided image
     /// @return Returns a pointer to the created Material instance
-    Material* createMaterial(Image* = nullptr);
+    Material* createMaterial(Texture* = nullptr);
 
     /// @brief Creates a camera object
     /// @return Returns a pointer to the camera instance 
     Camera* createCamera();
+
+    /// @brief Sets a camera to actively render or not
+    /// @param camera Pointer to the camera to change the render state of
+    /// @param active When True a camera will render every frame
+    void setCameraActive(Camera*, bool);
+
 private:
     //The active renderer instance
     Renderer* renderer;
 
     //List of all image handles
-    std::vector<Image*> images;
+    std::vector<Texture*> textures;
     //List of all mesh handles
     std::vector<Mesh*> meshes;
     //List of all loaded scenes
@@ -77,6 +83,6 @@ private:
     std::vector<Object*> objects;
     //List of all created materials
     std::vector<Material*> materials;
-    //List of all create cameras
+    //List of all created cameras
     std::vector<Camera*> cameras;
 };

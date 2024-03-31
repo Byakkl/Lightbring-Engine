@@ -9,6 +9,15 @@ bool Scene::addSceneObject(Object* object){
     return true;
 }
 
+bool Scene::addSceneCamera(Camera* camera){
+    for(auto sceneCamera : sceneCameras)
+        if(sceneCamera == camera)
+            return false;
+
+    sceneObjects.push_back(camera);
+    return true;
+}
+
 void Scene::update(){
     //Update the objects in the scene
     for(auto sceneObject : sceneObjects)

@@ -16,14 +16,14 @@ public:
 
 /// @brief Material component. Holds references to images to be passed to shaders
 struct Material: Component{
-    Image* albedo;
+    Texture* albedo;
 
     Material(){
         type = ComponentType::COMP_MATERIAL;
     }
 };
 
-struct Image{
+struct Texture{
     int width;
     int height;
     int channels;
@@ -31,6 +31,24 @@ struct Image{
     unsigned char* rawData;
     //Void pointer used by the renderer to store its specific data container to reference when rendering
     void* rendererData;
+
+    Texture(){
+        width = 0;
+        height = 0;
+        channels = 0;
+
+        rawData = nullptr;
+        rendererData = nullptr;
+    }
+
+    Texture(int _width, int _height, int _channels = 4){
+        width = _width;
+        height = _height;
+        channels = _channels;
+
+        rawData = nullptr;
+        rendererData = nullptr;
+    }
 
     void releaseRawData(){
         if(rawData != nullptr)
@@ -76,12 +94,16 @@ struct Transform : Component{
     glm::vec3 rotation;
     glm::vec3 scale;
 
+    void* rendererData;
+
     Transform(){
         type = ComponentType::COMP_TRANSFORM;
 
         position = glm::vec3(0.0f);
         rotation = glm::vec3(0.0f);
         scale = glm::vec3(1.0f);
+
+        rendererData = nullptr;
     }
 
     void setPosition(glm::vec3 newPosition){
@@ -94,5 +116,16 @@ struct Transform : Component{
 
     void setScale(glm::vec3 newScale){
         scale = newScale;
+    }
+
+    glm::mat4 getRotationMatrix(){
+        //ZXY rotation order
+        glm::mat4 rotationMatrix = glm::mat4(1.0f);
+
+        rotationMatrix = glm::rotate(rotationMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+        rotationMatrix = glm::rotate(rotationMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+        rotationMatrix = glm::rotate(rotationMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+
+        return rotationMatrix;
     }
 };

@@ -6,10 +6,11 @@
 
 class Scene{
 public:
+    std::vector<Object*> sceneObjects;
+    std::vector<Camera*> sceneCameras;
+
     bool addSceneObject(Object*);
     bool addSceneCamera(Camera*);
     void update();
 private:
-    std::vector<Object*> sceneObjects;
-    std::vector<Camera*> sceneCameras;
 };

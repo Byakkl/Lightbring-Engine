@@ -12,13 +12,13 @@ public:
     /// @brief Implementation of Renderer pure virtual method
     void initialize() override;
 
-    bool render(std::vector<Object*>) override;
+    bool render(Camera*, std::vector<Object*>) override;
 
     void cleanup() override;
 
-    void uploadImage(Image*) override;
+    void createTexture(Texture*) override;
 
-    void unloadImage(Image*) override;
+    void unloadTexture(Texture*) override;
 
     void uploadMesh(Mesh*) override;
 
@@ -31,8 +31,10 @@ public:
 private:
     //Constant to define concurrent frame processing
     const int MAX_FRAMES_IN_FLIGHT = 2;
-    //Constant to define the maximum number of sets in the model pool
-    const int MAX_MODEL_DESCRIPTOR_SETS = 10;
+    //Constant to define the maximum number of sets in the object pool
+    const int MAX_OBJECT_DESCRIPTOR_SETS = 10;
+    //Constant to define the maximum number of sets in the camera pool
+    const int MAX_CAMERA_DESCRIPTOR_SETS = 5;
     //Constants for window width and height
     const uint32_t WIDTH = 800;
     const uint32_t HEIGHT = 600;
@@ -86,12 +88,21 @@ private:
     std::vector<VkImageView> swapChainImageViews;
     //Stores the render pass used by the graphics pipeline
     VkRenderPass renderPass;
-    //Stores the descriptor set layout for shader bindings
-    VkDescriptorSetLayout modelDescriptorSetLayout;
-    //Stores the descriptor pool
-    VkDescriptorPool modelDescriptorPool;
-    //Stores the descriptor set handles from the descriptor pool; automatically freed when the descriptor pool is destroyed
-    std::vector<VkDescriptorSet> modelDescriptorSets;
+
+    //Stores the descriptor pool for object data
+    VkDescriptorPool objectDescriptorPool;
+    //Stores the descriptor set layout for shader bindings related to object data; eg mesh and materials
+    VkDescriptorSetLayout objectDescriptorSetLayout;
+    //Stores the descriptor set handles from the object descriptor pool; automatically freed when objectDescriptorPool is destroyed
+    std::vector<VkDescriptorSet> objectDescriptorSets;
+    
+    //Stores the descriptor pool for camera data
+    VkDescriptorPool cameraDescriptorPool;
+    //Stores the descriptor set layout for shader bindings related to the camera
+    VkDescriptorSetLayout cameraDescriptorSetLayout;
+    //Stores the descriptor set handles from the camera descriptor pool; auotmatically freed when cameraDescriptorPool is destroyed
+    std::vector<VkDescriptorSet> cameraDescriptorSets;
+
     //Stores the graphics pipeline layout object
     VkPipelineLayout pipelineLayout;
     //Stores the graphics pipeline object
@@ -116,10 +127,8 @@ private:
     uint32_t currentFrame = 0;
     //Stores flag to track if a resize has occurred
     bool framebufferResized = false;
-    //List of handles to unifrom buffers
-    std::vector<VkBuffer> uniformBuffers;
-    //List of handles to uniform buffer memory
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
+
+
     //List of handles to mapped uniform buffers
     std::vector<void*> uniformBuffersMapped;
     //Stores the texture sampler handle
@@ -284,7 +293,10 @@ private:
     void createUniformBuffers();
 
     /// @brief Creates a pool of uniform buffer descriptors
-    void createDescriptorPool();
+    /// @param descriptorPool The descriptor pool variable to populate
+    /// @param maxDescriptorSets The maximum number of descriptor sets that can be created at one time in this pool
+    /// @param poolSizes Array of allowed descriptory types and their max quanitites to be allocated from the pool at a given time
+    void createDescriptorPool(VkDescriptorPool&, int, std::vector<VkDescriptorPoolSize>);
 
     /// @brief Creates descriptor sets from a layout. Fails if numberOfSets does not match the size of descriptorLayouts
     /// @param descriptorPool The pool that the sets will be allocated from
@@ -293,12 +305,12 @@ private:
     /// @param descriptorSets The vector to resize and populate the new set handles into
     void createDescriptorSets(VkDescriptorPool, uint32_t, std::vector<VkDescriptorSetLayout>, std::vector<VkDescriptorSet>&);
 
-    void updateDescriptorSet(VkDescriptorSet&, const Object*);
+    void updateDescriptorSet(std::vector<VkWriteDescriptorSet>&, VkDescriptorSet&, Object*);
 
     VkWriteDescriptorSet createDescriptorWrite(VkDescriptorSet&, int, int, VkDescriptorType, int, VkDescriptorBufferInfo* = nullptr, VkDescriptorImageInfo* = nullptr, VkBufferView* = nullptr);
 
     /// @brief Creates a texture from an image source
-    void createTextureImage(const Image*, ImageData*);
+    void createTextureImage(const Texture*, ImageData*);
 
     /// @brief Creates a Vulkan image
     /// @param width Width in pixels

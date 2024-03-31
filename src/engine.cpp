@@ -40,8 +40,16 @@ bool LightbringEngine::update(){
         //Update the active scene
         activeScene->update();
 
-        //Update the renderer and render the next frame
-        isRunning = renderer->render();
+        //Render any active cameras
+        for(auto camera : activeScene->sceneCameras){
+            if(!camera->getIsRendering())
+                continue;
+
+            //TODO: Renderer preprocessing; eg CPU side object culling
+
+            //Update the renderer and render the next frame
+            isRunning = renderer->render(camera, activeScene->sceneObjects);
+        }
     } catch (const std::exception& e){
         std::cerr << e.what() << std::endl;
         shutdown();
@@ -55,10 +63,10 @@ void LightbringEngine::shutdown(){
     isRunning = false;
 
     //Clean up any image data
-    for(auto image : images){
-        renderer->unloadImage(image);
-        image->releaseRawData();
-        delete image;
+    for(auto texture : textures){
+        renderer->unloadTexture(texture);
+        texture->releaseRawData();
+        delete texture;
     }
 
     //Clean up any model data
@@ -85,20 +93,20 @@ void LightbringEngine::shutdown(){
     }
 }
 
-Image* LightbringEngine::importImage(const char* filePath, bool pushToGPU){
-    Image* importedData;
+Texture* LightbringEngine::importImage(const char* filePath, bool pushToGPU){
+    Texture* importedData;
     try{
         //Import the image data from the file
         importedData = importImageFile(filePath);
 
         //If the data is to be uploaded immediately; do so and clear the CPU data
         if(pushToGPU){
-            renderer->uploadImage(importedData);
+            renderer->createTexture(importedData);
             importedData->releaseRawData();
         }
 
         //Add the data structure to the engine's tracker
-        images.push_back(importedData);
+        textures.push_back(importedData);
     }
     catch(const std::exception& e){
         std::cerr << e.what() << std::endl;
@@ -112,13 +120,13 @@ Mesh* LightbringEngine::importMesh(const char* filePath, bool pushToGPU){
     return nullptr;
 }
 
-bool LightbringEngine::uploadImage(Image* imageData){
+bool LightbringEngine::uploadImage(Texture* imageData){
     //If this image's data has already been registered with the renderer don't upload it again
     if(imageData->rendererData != nullptr)
         return true;
 
     try{
-        renderer->uploadImage(imageData);
+        renderer->createTexture(imageData);
     } catch(const std::exception& e){
         std::cerr << e.what() << std::endl;
         return false;
@@ -191,11 +199,15 @@ void LightbringEngine::setActiveScene(Scene* scene){
 
     //TODO: Load new scene data
 
+    //TODO: Register cameras with renderer
+    for(auto camera : cameras)
+        renderer->registerCamera(camera);
+
     //Track the active scene
     activeScene = scene;
 }
 
-Material* LightbringEngine::createMaterial(Image* albedo){
+Material* LightbringEngine::createMaterial(Texture* albedo){
     //Create the instance
     Material* material = new Material;
 
@@ -220,6 +232,18 @@ Camera* LightbringEngine::createCamera(){
     return camera;
 }
 
+void LightbringEngine::setCameraActive(Camera* camera, bool active){
+    if(camera->getIsRendering() == active)
+        return;
+    
+    if(active)
+        renderer->registerCamera(camera);
+    else
+        renderer->unregisterCamera(camera);
+
+    camera->setIsRendering(active);
+}
+
 /// @brief This will be removed but is currently used as a quick and dirty way to test the engine as an exe
 /// @return 
 int main() {
@@ -234,9 +258,9 @@ int main() {
 
     //Game code to interact with the engine can be run now; eg loading assets
     //Import the test checker image
-    Image* testImage = engine->importImage("test images/UVChecker_512.png");
+    Texture* testImage = engine->importImage("test images/UVChecker_512.png");
     if(testImage == nullptr){
-        //Currently not handling reattempting as this a pseudo program
+        //Currently not handling reattempting as this is a pseudo program
         throw std::runtime_error("Engine failed image import"); 
         engine->shutdown();
         return EXIT_FAILURE;
