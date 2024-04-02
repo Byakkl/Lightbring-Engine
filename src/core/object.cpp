@@ -9,12 +9,12 @@ Object::~Object(){
     cleanup();
 }
 
-bool Object::addComponent(Component* component){
+bool Object::addComponent(Component* _component){
     for(auto component : components)
-        if(component->type == component->type)
+        if(component->type == _component->type)
             return false;
 
-    components.push_back(component);
+    components.push_back(_component);
     return true;
 }
 
@@ -34,6 +34,6 @@ void Object::cleanup(){
     components.clear();
 }
 
-void Object::update(){
+void Object::update(float deltaTime){
 
 }

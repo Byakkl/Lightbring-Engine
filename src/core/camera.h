@@ -24,7 +24,7 @@ public:
     //Renderer specific data pointer
     void* rendererData;
 
-    Camera(){}
+    Camera();
 
     ///@brief Sets the frame of view of the camera
     ///@param fov The new frame of view
@@ -63,6 +63,10 @@ public:
     /// @param lookPosition The position that the camera is looking at
     /// @return 
     glm::mat4 getLookAtMatrix(glm::vec3, glm::vec3);
+
+    /// @brief Returns a view matrix for the camera
+    /// @return 
+    glm::mat4 getViewMatrix();
 
     /// @brief Returns a perspective matrix for the camera
     /// @return 

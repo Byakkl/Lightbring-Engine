@@ -1,10 +1,9 @@
 #version 450
 
-layout(binding = 0) uniform UniformBufferObject{
-    mat4 model;
-    mat4 view;
-    mat4 proj;
-} ubo;
+layout(push_constant) uniform PushConstants{
+    //Model, View, Projection matrix
+    mat4 mvp;
+} pushConstants;
 
 //Input variable for 3D vertex position
 layout(location = 0) in vec3 inPosition;
@@ -22,7 +21,8 @@ void main(){
     //"gl_Position" is a built in variable that acts as the output
     //"gl_VertexIndex" is the index of the current vertex
     //Translate the model in 3D space
-    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
+    gl_Position = pushConstants.mvp * vec4(inPosition, 1.0);
+    //gl_Position = vec4(inPosition, 1.0);
 
     //Assign the color to the input color
     fragColor = inColor;

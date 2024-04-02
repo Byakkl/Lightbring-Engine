@@ -1,6 +1,7 @@
 #define NDEBUG
 
 #include <iostream>
+#include <chrono>
 #include "engine.h"
 #include "fileio/import_image.h"
 #include "primitives.h"
@@ -11,7 +12,7 @@
 
 bool LightbringEngine::start(){
     //Flag the engine as running
-    isRunning = true;
+    isRunning = true;    
 
     //Select the correct renderer based on preprocessor defines
     #ifdef RENDERER_VULKAN
@@ -37,8 +38,17 @@ bool LightbringEngine::update(){
         if(activeScene == nullptr)
             return true;
         
+        //Static tracker for start time; set when this method is initially called
+        static auto startTime = std::chrono::high_resolution_clock::now();
+        
+        //Get the current time 
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        //Find the difference between static start time and current time
+        float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+
         //Update the active scene
-        activeScene->update();
+        activeScene->update(deltaTime);
 
         //Render any active cameras
         for(auto camera : activeScene->sceneCameras){
@@ -151,27 +161,27 @@ bool LightbringEngine::uploadMesh(Mesh* meshData){
 
 Mesh* LightbringEngine::createPrimitive(MeshPrimitive primitive){
     //Container for the copy-constructed instance
-    Mesh output;
+    Mesh* output;
 
     //Determine the type of primitive based on input value
     switch (primitive)
     {
     case MeshPrimitive::PRIM_QUAD:
-        output = quad;
-    
+        output = new Mesh(quad);
+        break;
     default:
         return nullptr;
     }
 
     //Add the pointer to the engine's tracker
-    meshes.push_back(&output);
+    meshes.push_back(output);
     //Return a pointer to the instance
-    return &output;
+    return output;
 }
 
 Scene* LightbringEngine::createScene(){
     //Create the instance
-    Scene* emptyScene = new Scene;
+    Scene* emptyScene = new Scene();
 
     //Add it to the list of scenes
     scenes.push_back(emptyScene);
@@ -209,7 +219,7 @@ void LightbringEngine::setActiveScene(Scene* scene){
 
 Material* LightbringEngine::createMaterial(Texture* albedo){
     //Create the instance
-    Material* material = new Material;
+    Material* material = new Material();
 
     //Assign the values
     material->albedo = albedo;
@@ -223,7 +233,7 @@ Material* LightbringEngine::createMaterial(Texture* albedo){
 
 Camera* LightbringEngine::createCamera(){
     //Create the camera instance
-    Camera* camera = new Camera;
+    Camera* camera = new Camera();
 
     //Add it to the list of cameras
     cameras.push_back(camera);
@@ -233,14 +243,17 @@ Camera* LightbringEngine::createCamera(){
 }
 
 void LightbringEngine::setCameraActive(Camera* camera, bool active){
+    //Return if call is redundant
     if(camera->getIsRendering() == active)
         return;
     
+    //Un/register the camera as needed
     if(active)
         renderer->registerCamera(camera);
     else
         renderer->unregisterCamera(camera);
 
+    //Update the camera's render flag
     camera->setIsRendering(active);
 }
 
@@ -258,7 +271,7 @@ int main() {
 
     //Game code to interact with the engine can be run now; eg loading assets
     //Import the test checker image
-    Texture* testImage = engine->importImage("test images/UVChecker_512.png");
+    Texture* testImage = engine->importImage("images/UVChecker_512.png");
     if(testImage == nullptr){
         //Currently not handling reattempting as this is a pseudo program
         throw std::runtime_error("Engine failed image import"); 
@@ -283,6 +296,8 @@ int main() {
 
     //Create a camera object
     Camera* cameraObj = engine->createCamera();
+    cameraObj->transform->setPosition(glm::vec3(0.0f, 0.0f, -2.0f));
+    cameraObj->setAspectRatio(800.0f/600.0f);
 
     //Create a scene
     Scene* scene = engine->createScene();

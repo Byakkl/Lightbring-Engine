@@ -5,6 +5,7 @@
 Camera::Camera(){
     isRendering = true;
     frameOfView = 45.0f;
+    aspectRatio = 1.0f;
     nearClippingDist = 0.1f;
     farClippingDist = 10.0f;
     offset = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -45,6 +46,15 @@ bool Camera::getIsRendering(){
 
 glm::mat4 Camera::getLookAtMatrix(glm::vec3 cameraOrigin, glm::vec3 lookPosition){
     return glm::lookAt(cameraOrigin + offset, lookPosition, glm::vec3(0.0f, 0.0f, 1.0f));
+}
+
+glm::mat4 Camera::getViewMatrix(){
+    glm::mat4 output = glm::mat4(1.0f);
+    output = glm::translate(output, -(transform->position + offset));
+    output *= transform->getRotationMatrix();
+
+    output = glm::inverse(output);
+    return output;
 }
 
 glm::mat4 Camera::getPerspectiveMatrix(){

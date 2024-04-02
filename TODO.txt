@@ -1,15 +1,9 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
-2024-03-30
-- VULKAN: Add support for registering and unregistering cameras
-- VULKAN: Add support for creating and updating camera descriptor sets when un/registering cameras
-- VULKAN: Add support for creating and updating object descriptor sets
-- ENGINE: Add flow for registering cameras and objects with the renderer when activating a scene
-- ENGINE: Add flow for unregistering cameras and objects from the renderer when activating a different scene 
+2024-04-02
+- ENGINE: Define standards for method parameter naming
 
-2024-03-11 - 
-- ENGINE: Refactor out references to importers and hard coded values from the Vulkan renderer implementation
 
 TODO:
 - VULKAN: Implement OBJ model imports
@@ -28,6 +22,14 @@ TODO:
 - ENGINE: Create an API .h that can be used externally for when the engine is built as a library and not an executable
 
 DONE:
+
+2024-03-30 - 2024-04-02
+- VULKAN: Add for Push Constants
+- VULKAN: Add MVP matrix as push content data 
+- VULKAN: Add support for creating and updating object descriptor sets
+- VULKAN: Update object descriptor sets to only require sampler info as positional data is handled via push constants
+2024-03-11 - 2024-04-02
+- ENGINE: Refactor out references to importers and hard coded values from the Vulkan renderer implementation
 2024-03-26 - 2024-03-30
 - VULKAN: Add support for creating textures when requested by the engine
 - VULKAN: Add transform and camera render data structures

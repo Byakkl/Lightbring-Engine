@@ -35,6 +35,20 @@ struct QueueFamilyIndices{
     }
 };
 
+struct BufferSet{
+    //Stores the buffer handle
+    VkBuffer buffer;
+    //Stores the device memory handle
+    VkDeviceMemory memory;
+
+    void cleanup(VkDevice device){
+        vkDeviceWaitIdle(device);
+
+        vkDestroyBuffer(device, buffer, nullptr);
+        vkFreeMemory(device, memory, nullptr);
+    }
+};
+
 //Container for a set of Image data
 struct ImageData{
     //Stores the handle to an image buffer
@@ -89,16 +103,6 @@ struct CameraData{
     }
 };
 
-struct BufferSet{
-    //Stores the buffer handle
-    VkBuffer buffer;
-    //Stores the device memory handle
-    VkDeviceMemory memory;
-
-    void cleanup(VkDevice device){
-        vkDeviceWaitIdle(device);
-
-        vkDestroyBuffer(device, buffer, nullptr);
-        vkFreeMemory(device, memory, nullptr);
-    }
+struct PushConstants{
+    alignas(16) glm::mat4 mvp;
 };

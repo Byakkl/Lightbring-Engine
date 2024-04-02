@@ -1,21 +1,19 @@
 #pragma once
 
 #include <vector>
-
-enum ComponentType;
-class Component;
+#include "structs.h"
 
 class Object {
 public:
     //Locally managed component present on all objects
-    Component* transform;
+    Transform* transform;
     
     Object();
     ~Object();
     bool addComponent(Component*);
     Component* getComponent(const ComponentType);
     virtual void cleanup();
-    virtual void update();
+    virtual void update(float);
 private:
     std::vector<Component*> components;
 };

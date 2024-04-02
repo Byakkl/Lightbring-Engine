@@ -5,6 +5,7 @@
 #include "scene.h"
 #include "structs.h"
 #include "camera.h"
+#include "primitives.h"
 
 class LightbringEngine{
 public:

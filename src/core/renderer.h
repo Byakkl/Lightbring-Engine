@@ -1,6 +1,8 @@
 #pragma once
 
 #include "structs.h"
+#include "camera.h"
+#include "object.h"
 
 class Renderer {
 public:

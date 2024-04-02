@@ -78,14 +78,19 @@ private:
     VkQueue transferQueue;
     //Stores the Vulkan swap chain object
     VkSwapchainKHR swapChain;
+
     //Stores a list of handles for each of the swap chain images
-    std::vector<VkImage> swapChainImages;
+    //std::vector<VkImage> swapChainImages;
+
     //Stores the format of the swap chain images
     VkFormat swapChainImageFormat;
     //Stores the extents of the swap chain images
     VkExtent2D swapChainExtent;
+
+    std::vector<ImageData> swapChainImageData;
     //Stores an image view for each of the images within the swap chain
-    std::vector<VkImageView> swapChainImageViews;
+    //std::vector<VkImageView> swapChainImageViews;
+
     //Stores the render pass used by the graphics pipeline
     VkRenderPass renderPass;
 
@@ -96,13 +101,6 @@ private:
     //Stores the descriptor set handles from the object descriptor pool; automatically freed when objectDescriptorPool is destroyed
     std::vector<VkDescriptorSet> objectDescriptorSets;
     
-    //Stores the descriptor pool for camera data
-    VkDescriptorPool cameraDescriptorPool;
-    //Stores the descriptor set layout for shader bindings related to the camera
-    VkDescriptorSetLayout cameraDescriptorSetLayout;
-    //Stores the descriptor set handles from the camera descriptor pool; auotmatically freed when cameraDescriptorPool is destroyed
-    std::vector<VkDescriptorSet> cameraDescriptorSets;
-
     //Stores the graphics pipeline layout object
     VkPipelineLayout pipelineLayout;
     //Stores the graphics pipeline object
@@ -123,20 +121,23 @@ private:
     std::vector<VkSemaphore> renderFinishedSemaphores;
     //Stores the fence objects to signal when presentation is complete
     std::vector<VkFence> inFlightFences;
+    //Stores the fence object used to signal when an object render batch is complete
+    VkFence renderFence;
     //Stores the current frame index; used as an index into semaphores
     uint32_t currentFrame = 0;
     //Stores flag to track if a resize has occurred
     bool framebufferResized = false;
 
-
-    //List of handles to mapped uniform buffers
-    std::vector<void*> uniformBuffersMapped;
     //Stores the texture sampler handle
     VkSampler textureSampler;
+
     //Stores depth image handles
-    VkImage depthImage;
-    VkDeviceMemory depthImageMemory;
-    VkImageView depthImageView;
+    ImageData depthImage;
+
+    PushConstants pushConstants;
+
+    
+    std::vector<VkImage> images;
 
     /// @brief Initializes the window used to render to
     void initWindow();
@@ -158,9 +159,12 @@ private:
     void createSyncObjects();
     
     /// @brief Records the command buffer that will render a frame to a swap chain image
-    /// @param commandBuffer 
-    /// @param imageIndex 
-    void recordCommandBuffer(VkCommandBuffer, uint32_t);
+    /// @param commandBuffer Command buffer to write commands into
+    /// @param imageIndex Index of the framebuffer that will be rendered to
+    /// @param viewProjMatrix Precomputed camera matrices to be used with object transformation matrix to generate MVP push constant
+    /// @param objects Pointer to entry in object array used to fetch model data
+    /// @param objectCount Number of objects to be drawn within this render command buffer. Used to increment the pointer to walk along the array
+    void recordObjectRenderCommandBuffer(VkCommandBuffer, uint32_t, glm::mat4, Object*, int);
     
     /// @brief Creates the command buffers
     /// @param commandPool Reference to the command pool the buffer will be created on
@@ -187,7 +191,7 @@ private:
     void createGraphicsPipeline();
     
     /// @brief Creates an image view for each of the images within the swap chain
-    void createImageViews();
+    void createSwapChainImageViews();
     
     /// @brief Regenerates the swap chain
     void recreateSwapChain();
@@ -273,24 +277,16 @@ private:
     
     /// @brief Determines which physical device should be used by Vulkan
     void pickPhysicalDevice();
-    
-    /// @brief Main engine loop
-    void mainLoop();
-    
-    /// @brief Draws a frame
-    void drawFrame();
-    
-    /// @brief Top level clean up method called when the engine is shut down
-    void cleanup();
 
     /// @brief Clean up method for swap chain and related structures
     void cleanupSwapChain();
 
     /// @brief Creates the shader binding layouts
-    void createDescriptorSetLayout();
+    void createObjectDescriptorSetLayout();
     
     /// @brief Creates the uniform buffers used in shaders
-    void createUniformBuffers();
+    template <typename T>
+    BufferSet createUniformBuffer();
 
     /// @brief Creates a pool of uniform buffer descriptors
     /// @param descriptorPool The descriptor pool variable to populate
@@ -305,9 +301,9 @@ private:
     /// @param descriptorSets The vector to resize and populate the new set handles into
     void createDescriptorSets(VkDescriptorPool, uint32_t, std::vector<VkDescriptorSetLayout>, std::vector<VkDescriptorSet>&);
 
-    void updateDescriptorSet(std::vector<VkWriteDescriptorSet>&, VkDescriptorSet&, Object*);
+    void updateDescriptorSet(std::vector<VkWriteDescriptorSet*>&, VkDescriptorSet&, Object*);
 
-    VkWriteDescriptorSet createDescriptorWrite(VkDescriptorSet&, int, int, VkDescriptorType, int, VkDescriptorBufferInfo* = nullptr, VkDescriptorImageInfo* = nullptr, VkBufferView* = nullptr);
+    VkWriteDescriptorSet* createDescriptorWrite(VkDescriptorSet&, int, int, VkDescriptorType, int, VkDescriptorBufferInfo* = nullptr, VkDescriptorImageInfo* = nullptr, VkBufferView* = nullptr);
 
     /// @brief Creates a texture from an image source
     void createTextureImage(const Texture*, ImageData*);
@@ -358,9 +354,12 @@ private:
     /// @brief Creates a texture sampler
     void createTextureSampler();
 
-    /// @brief Updates a uniform buffer
-    /// @param currentImage The current frame index, used to identify which buffer needs updating
-    void updateUniformBuffer(uint32_t);
+    /// @brief Updates a buffer
+    /// @param bufferSet Reference to the buffer and device memory to be updated
+    /// @param offset The offset into the memory that the data is to be copied at
+    /// @param dataObject The data to be copied into the memory
+    template<typename T>
+    void updateBuffer(BufferSet&, uint32_t, T);
 
     /// @brief Creates texture resource for a depth buffer
     void createDepthResources();

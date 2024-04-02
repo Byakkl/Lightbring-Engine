@@ -14,16 +14,16 @@ bool Scene::addSceneCamera(Camera* camera){
         if(sceneCamera == camera)
             return false;
 
-    sceneObjects.push_back(camera);
+    sceneCameras.push_back(camera);
     return true;
 }
 
-void Scene::update(){
+void Scene::update(float deltaTime){
     //Update the objects in the scene
     for(auto sceneObject : sceneObjects)
-        sceneObject->update();
+        sceneObject->update(deltaTime);
 
     //Update the cameras in the scene
     for(auto sceneCamera : sceneCameras)
-        sceneCamera->update();
+        sceneCamera->update(deltaTime);
 }

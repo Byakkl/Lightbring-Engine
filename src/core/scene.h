@@ -11,6 +11,6 @@ public:
 
     bool addSceneObject(Object*);
     bool addSceneCamera(Camera*);
-    void update();
+    void update(float);
 private:
 };
