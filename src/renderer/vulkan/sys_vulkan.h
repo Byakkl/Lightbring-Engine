@@ -301,9 +301,9 @@ private:
     /// @param descriptorSets The vector to resize and populate the new set handles into
     void createDescriptorSets(VkDescriptorPool, uint32_t, std::vector<VkDescriptorSetLayout>, std::vector<VkDescriptorSet>&);
 
-    void updateDescriptorSet(std::vector<VkWriteDescriptorSet*>&, VkDescriptorSet&, Object*);
+    void updateDescriptorSet(std::vector<VkWriteDescriptorSet>&, VkDescriptorSet&, Object*);
 
-    VkWriteDescriptorSet* createDescriptorWrite(VkDescriptorSet&, int, int, VkDescriptorType, int, VkDescriptorBufferInfo* = nullptr, VkDescriptorImageInfo* = nullptr, VkBufferView* = nullptr);
+    VkWriteDescriptorSet createDescriptorWrite(VkDescriptorSet&, int, int, VkDescriptorType, int, VkDescriptorBufferInfo* = nullptr, VkDescriptorImageInfo* = nullptr, VkBufferView* = nullptr);
 
     /// @brief Creates a texture from an image source
     void createTextureImage(const Texture*, ImageData*);

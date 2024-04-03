@@ -51,21 +51,12 @@ bool VulkanRenderer::render(Camera* camera, std::vector<Object*> objects){
 
     size_t arrSize = objects.size();
     Object* pObjectSubset;
-    std::vector<VkWriteDescriptorSet*> descriptorWrites;
+    std::vector<VkWriteDescriptorSet> descriptorWrites;
     VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
     VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
     for(int i = 0; i < arrSize; i += MAX_OBJECT_DESCRIPTOR_SETS){
         //Reset the batch render fence
         vkResetFences(device, 1, &renderFence);
-        
-        //Clean up any created structure pointers now that updates have been applied
-        for(auto descriptorWrite : descriptorWrites){
-            delete descriptorWrite->pBufferInfo;
-            delete descriptorWrite->pImageInfo;
-            delete descriptorWrite->pTexelBufferView;
-
-            delete descriptorWrite;
-        }
 
         //Clear the list of descriptor writes of any previous entries
         descriptorWrites.clear();
@@ -80,15 +71,9 @@ bool VulkanRenderer::render(Camera* camera, std::vector<Object*> objects){
         //Generate Descriptor Set updates
         for(int idx = 0; idx < objectCount; idx++)
             updateDescriptorSet(descriptorWrites, objectDescriptorSets[idx], pObjectSubset + idx);
-        
-        VkWriteDescriptorSet setWrites[descriptorWrites.size()];
-        for(int idx = 0; idx < descriptorWrites.size(); idx++)
-        {
-            setWrites[idx] = *descriptorWrites[idx];
-        }
 
         //Apply the updates
-        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), setWrites, 0, nullptr);
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 
         //Reset the command buffer
         //Second parameter is a "VkCommandBufferResetFlagBits" flag
@@ -444,7 +429,7 @@ void VulkanRenderer::initVulkan(){
         static_cast<uint32_t>(MAX_OBJECT_DESCRIPTOR_SETS)}
     });
     //Pre-allocate the descriptor sets for objects in the scene
-    createDescriptorSets(objectDescriptorPool, static_cast<uint32_t>(MAX_OBJECT_DESCRIPTOR_SETS), std::vector<VkDescriptorSetLayout>{MAX_OBJECT_DESCRIPTOR_SETS, objectDescriptorSetLayout}, objectDescriptorSets);
+    createDescriptorSets(objectDescriptorPool, static_cast<uint32_t>(MAX_OBJECT_DESCRIPTOR_SETS), std::vector<VkDescriptorSetLayout>{static_cast<size_t>(MAX_OBJECT_DESCRIPTOR_SETS), objectDescriptorSetLayout}, objectDescriptorSets);
     
     //createDescriptorSets(cameraDescriptorPool, MAX_CAMERA_DESCRIPTOR_SETS, std::vector<VkDescriptorSetLayout>{MAX_CAMERA_DESCRIPTOR_SETS, cameraDescriptorSetLayout}, cameraDescriptorSets);
 
@@ -818,7 +803,7 @@ void VulkanRenderer::createTextureImage(const Texture* texture, ImageData* outpu
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void VulkanRenderer::updateDescriptorSet(std::vector<VkWriteDescriptorSet*>& descriptorWrites, VkDescriptorSet& descriptorSet, Object* object){
+void VulkanRenderer::updateDescriptorSet(std::vector<VkWriteDescriptorSet>& descriptorWrites, VkDescriptorSet& descriptorSet, Object* object){
     //Create descriptor write for material
     Component* matComp = object->getComponent(ComponentType::COMP_MATERIAL);
     if(matComp){
@@ -833,18 +818,18 @@ void VulkanRenderer::updateDescriptorSet(std::vector<VkWriteDescriptorSet*>& des
     }
 }
 
-VkWriteDescriptorSet* VulkanRenderer::createDescriptorWrite(VkDescriptorSet& descriptorSet, int binding, int arrayElement, VkDescriptorType descriptorType,
+VkWriteDescriptorSet VulkanRenderer::createDescriptorWrite(VkDescriptorSet& descriptorSet, int binding, int arrayElement, VkDescriptorType descriptorType,
     int descriptorCount, VkDescriptorBufferInfo* bufferInfo, VkDescriptorImageInfo* imageInfo, VkBufferView* texelView){
-    VkWriteDescriptorSet* write = new VkWriteDescriptorSet();
-    write->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write->dstSet = descriptorSet;
-    write->dstBinding = binding;
-    write->dstArrayElement = arrayElement;
-    write->descriptorType = descriptorType;
-    write->descriptorCount = descriptorCount;
-    write->pBufferInfo = bufferInfo;
-    write->pImageInfo = imageInfo;
-    write->pTexelBufferView = texelView;
+    VkWriteDescriptorSet write = VkWriteDescriptorSet();
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = descriptorSet;
+    write.dstBinding = binding;
+    write.dstArrayElement = arrayElement;
+    write.descriptorType = descriptorType;
+    write.descriptorCount = descriptorCount;
+    write.pBufferInfo = bufferInfo;
+    write.pImageInfo = imageInfo;
+    write.pTexelBufferView = texelView;
 
     return write;
 }
