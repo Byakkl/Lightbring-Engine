@@ -774,7 +774,7 @@ void VulkanRenderer::createTextureImage(const Texture* texture, ImageData* outpu
         stagingBufferMemory);
     
     //Transfer the image data into the staging buffer if any is present
-    if(!texture->rawData){
+    if(texture->rawData != nullptr){
         void* data;
         vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
         memcpy(data, texture->rawData, static_cast<size_t>(imageSize));
@@ -808,7 +808,7 @@ void VulkanRenderer::updateDescriptorSet(std::vector<VkWriteDescriptorSet>& desc
     Component* matComp = object->getComponent(ComponentType::COMP_MATERIAL);
     if(matComp){
         //Albedo
-        ImageData* albedoData = (ImageData*)(((Material*)matComp)->albedo->rendererData);
+        ImageData* albedoData = static_cast<ImageData*>(static_cast<Material*>(matComp)->albedo->rendererData);
         VkDescriptorImageInfo* imageInfo = new VkDescriptorImageInfo();
         imageInfo->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfo->imageView = albedoData->imageViews[0];
@@ -1319,7 +1319,7 @@ void VulkanRenderer::createGraphicsPipeline(){
     //Requires GPU feature "wideLines" to use values greater than 1.0f
     rasterizer.lineWidth = 1.0f;
     //Determines cull mode. _FRONT, _BACK, _FRONT_AND_BACK, _NONE options available
-    rasterizer.cullMode = VK_CULL_MODE_NONE;
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
     //Determines vertex order for faces to be considered front-facing
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     //Can be used to alter depth values via constant or slope bias
