@@ -66,6 +66,8 @@ struct ImageData{
             vkDestroyImageView(device, view, nullptr);
         vkDestroyImage(device, image, nullptr);
         vkFreeMemory(device, memory, nullptr);
+
+        imageViews.clear();
     }
 };
 

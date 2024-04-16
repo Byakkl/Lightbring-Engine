@@ -1,11 +1,10 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
-2024-04-02
-- ENGINE: Define standards for method parameter naming
-
+- ENGINE: Update camera aspect ratio when window is resized
 
 TODO:
+- ENGINE: Define standards for method parameter naming
 - VULKAN: Implement OBJ model imports
 - VULKAN: Decide on a better method for storing and referencing queue family indices than a vector (requestQueueFamilies, queueFamilies). 
     A fetch method to more explicitly declare what to fetch instead of magic index numbers. Potentially a map structure
@@ -22,7 +21,8 @@ TODO:
 - ENGINE: Create an API .h that can be used externally for when the engine is built as a library and not an executable
 
 DONE:
-
+2024-04-02 - 2024-04-16
+- VULKAN: Fix SEGFAULT issue with resizing window
 2024-03-30 - 2024-04-02
 - VULKAN: Add for Push Constants
 - VULKAN: Add MVP matrix as push content data 

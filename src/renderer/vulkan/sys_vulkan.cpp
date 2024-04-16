@@ -129,7 +129,6 @@ bool VulkanRenderer::render(Camera* camera, std::vector<Object*> objects){
     if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized){
         framebufferResized = false;
         recreateSwapChain();
-        return false;
     }
     else if (result != VK_SUCCESS)
         throw std::runtime_error("Failed to present swap chain image");
@@ -1440,23 +1439,22 @@ void VulkanRenderer::createSwapChainImageViews(){
 
 void VulkanRenderer::cleanupSwapChain(){
     //Clean up the depth buffer
-    for(auto imageView : depthImage.imageViews)
-        vkDestroyImageView(device, imageView, nullptr);
-    vkDestroyImage(device, depthImage.image, nullptr);
-    vkFreeMemory(device, depthImage.memory, nullptr);
+    depthImage.cleanup(device);
 
     //Clean up the frame buffers
     for(auto frameBuffer : swapChainFramebuffers)
         vkDestroyFramebuffer(device, frameBuffer, nullptr);
 
-    //Clean up the image views
+    //Clean up the image views of the swap chain images
     for(auto swapChainImage : swapChainImageData){
         for(auto imageView : swapChainImage.imageViews)
             vkDestroyImageView(device, imageView, nullptr);
     }
 
-    //Clean up the swap chain itself
+    //Clean up the swap chain itself. This handles cleanup of the images and memory as cleaning those up elsewhere isn't allowed
     vkDestroySwapchainKHR(device, swapChain, nullptr);
+
+    swapChainImageData.clear();
 }
 
 void VulkanRenderer::recreateSwapChain(){
