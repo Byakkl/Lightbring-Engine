@@ -22,7 +22,8 @@ bool LightbringEngine::start(){
     //Initialize any engine data
     try{
         //Initialize the engine's renderer
-        renderer->initialize();
+        renderer->initialize(800, 600);
+        renderer->windowResizedEvent.Register([this](uint32_t width, uint32_t height) {windowResizedCallback(width, height);});
     } catch (const std::exception& e){
         std::cerr << e.what() << std::endl;
         shutdown();
@@ -235,6 +236,10 @@ Camera* LightbringEngine::createCamera(){
     //Create the camera instance
     Camera* camera = new Camera();
 
+    //Initialize the aspect ratio
+    float ratio = (float)(renderer->windowWidth) / (float)(renderer->windowHeight);
+    camera->setAspectRatio(ratio);
+
     //Add it to the list of cameras
     cameras.push_back(camera);
 
@@ -255,6 +260,12 @@ void LightbringEngine::setCameraActive(Camera* camera, bool active){
 
     //Update the camera's render flag
     camera->setIsRendering(active);
+}
+
+void LightbringEngine::windowResizedCallback(const uint32_t width, const uint32_t height){
+    float newAspect = (float)width / (float)height;
+    for(auto camera : cameras)
+        camera->setAspectRatio(newAspect);
 }
 
 /// @brief This will be removed but is currently used as a quick and dirty way to test the engine as an exe
@@ -297,7 +308,6 @@ int main() {
     //Create a camera object
     Camera* cameraObj = engine->createCamera();
     cameraObj->transform->setPosition(glm::vec3(0.0f, 0.0f, -2.0f));
-    cameraObj->setAspectRatio(800.0f/600.0f);
 
     //Create a scene
     Scene* scene = engine->createScene();

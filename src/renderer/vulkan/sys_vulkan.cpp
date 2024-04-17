@@ -18,7 +18,9 @@
 #include "structs_model.h"
 #include "../../core/structs.h"
 
-void VulkanRenderer::initialize(){
+void VulkanRenderer::initialize(uint32_t width, uint32_t height){
+    windowWidth = width;
+    windowHeight = height;
     initWindow();
     initVulkan();
 }
@@ -332,11 +334,14 @@ void VulkanRenderer::initWindow(){
         //Create a new window with resolution 800x600 and name Vulkan
         //4th parameter can specify a monitor to open on
         //5th parameter is relevant to OpenGL
-        window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+        window = glfwCreateWindow(windowWidth, windowHeight, "Vulkan", nullptr, nullptr);
         //Set a pointer to this instance of VulkanRenderer that can be used in the callback
         glfwSetWindowUserPointer(window, this);
         //Set a callback to be invoked by GLFW when the window is resized
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+
+        //Invoke the window resize event now that the window is created. There may be no listeners at this time but it's consistent at least
+        windowResizedEvent.Invoke(windowWidth, windowHeight);
     }
 
 void VulkanRenderer::createInstance(){
@@ -1480,6 +1485,9 @@ void VulkanRenderer::recreateSwapChain(){
     createDepthResources();
     //Regenerate the buffers for the swap chain images
     createFrameBuffers();
+
+    //Call the window resized event
+    windowResizedEvent.Invoke(width, height);
 }
 
 void VulkanRenderer::createSwapChain(){

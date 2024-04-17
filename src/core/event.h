@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <functional>
 
 template<typename... Args>
 class Event{
@@ -37,7 +38,7 @@ public:
     {
         //Go through the map of callbacks and invoke the functions
         for(const auto& pair : listeners)
-            pair.second(args);
+            pair.second(args...);
     }
 
 private:

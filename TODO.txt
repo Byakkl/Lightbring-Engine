@@ -2,9 +2,6 @@ This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
 2024-04-16 - 
-- ENGINE: Implement an event for window resize in the renderer and subscribe a callback
-- ENGINE: Implement an event queue for engine events
-- ENGINE: Update camera aspect ratio when window is resized using window resize event
 
 TODO:
 - ENGINE: Define standards for method parameter naming
@@ -25,9 +22,13 @@ TODO:
 - CMAKE: Setup the build to create a single library file
 - CMAKE: Setup the build to no longer create an executable
 - ENGINE: Remove main() method
+- ENGINE: Implement an event queue for engine events.
+    This might not be needed for a while. It would be useful if there are engine threads that need to communicate back to the main engine thread
 
 DONE:
 2024-04-16 - 2024-04-17
+- ENGINE: Update camera aspect ratio when window is resized using window resize event
+- ENGINE: Implement an event for window resize in the renderer and subscribe a callback
 - ENGINE: Created variadic template event class
 2024-04-02 - 2024-04-16
 - VULKAN: Fix SEGFAULT issue with resizing window

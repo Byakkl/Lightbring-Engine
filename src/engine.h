@@ -1,5 +1,6 @@
 #pragma once
 
+#include "event.h"
 #include "renderer.h"
 #include "fileio/import_image.h"
 #include "scene.h"
@@ -86,4 +87,9 @@ private:
     std::vector<Material*> materials;
     //List of all created cameras
     std::vector<Camera*> cameras;
+
+    /// @brief Method used internally to respond to window resize event invocations
+    /// @param width The new width of the window
+    /// @param height The new height of the window
+    void windowResizedCallback(const uint32_t, const uint32_t);
 };

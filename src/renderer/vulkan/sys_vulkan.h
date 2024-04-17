@@ -10,7 +10,9 @@
 class VulkanRenderer : public Renderer{
 public:
     /// @brief Implementation of Renderer pure virtual method
-    void initialize() override;
+    /// @param width Desired width of the window
+    /// @param height Desired height of the window
+    void initialize(uint32_t, uint32_t) override;
 
     bool render(Camera*, std::vector<Object*>) override;
 
@@ -35,9 +37,6 @@ private:
     const int MAX_OBJECT_DESCRIPTOR_SETS = 10;
     //Constant to define the maximum number of sets in the camera pool
     const int MAX_CAMERA_DESCRIPTOR_SETS = 5;
-    //Constants for window width and height
-    const uint32_t WIDTH = 800;
-    const uint32_t HEIGHT = 600;
     //Control if validation layers will be used through the define of NDEBUG
     #ifndef NDEBUG
         const bool enableValidationLayers = false;

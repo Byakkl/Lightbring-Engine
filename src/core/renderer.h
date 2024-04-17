@@ -1,13 +1,23 @@
 #pragma once
 
+#include "event.h"
 #include "structs.h"
 #include "camera.h"
 #include "object.h"
 
 class Renderer {
 public:
+    /// @brief Event invoked when the window is resized
+    Event<uint32_t, uint32_t> windowResizedEvent;
+
+    /// @brief Stores the width of the window
+    uint32_t windowWidth;
+
+    /// @brief Stores the height of the window
+    uint32_t windowHeight;
+
     /// @brief Pure virtual method used to initialize a renderer
-    virtual void initialize() = 0;
+    virtual void initialize(uint32_t, uint32_t) = 0;
 
     /// @brief Pure virtual method used to run the renderer
     /// @param camera The camera that is being rendered
