@@ -1,7 +1,10 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
-- ENGINE: Update camera aspect ratio when window is resized
+2024-04-16 - 
+- ENGINE: Implement an event for window resize in the renderer and subscribe a callback
+- ENGINE: Implement an event queue for engine events
+- ENGINE: Update camera aspect ratio when window is resized using window resize event
 
 TODO:
 - ENGINE: Define standards for method parameter naming
@@ -19,8 +22,13 @@ TODO:
 - VULKAN: Look into Push Constants for moving frequently changing values into a shader. Eg for MVP uniform buffer
 - VULKAN: Look into supporting multiple descriptor sets
 - ENGINE: Create an API .h that can be used externally for when the engine is built as a library and not an executable
+- CMAKE: Setup the build to create a single library file
+- CMAKE: Setup the build to no longer create an executable
+- ENGINE: Remove main() method
 
 DONE:
+2024-04-16 - 2024-04-17
+- ENGINE: Created variadic template event class
 2024-04-02 - 2024-04-16
 - VULKAN: Fix SEGFAULT issue with resizing window
 2024-03-30 - 2024-04-02

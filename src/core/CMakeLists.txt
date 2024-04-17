@@ -4,7 +4,8 @@ set(CORE_SOURCES
     object.cpp
     scene.cpp
     renderer.h
-    camera.cpp)
+    camera.cpp
+    event.h)
 
 add_library(Core_Lib ${CORE_SOURCES})
 

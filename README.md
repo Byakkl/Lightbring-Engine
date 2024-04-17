@@ -4,8 +4,9 @@ Long term project to build a basic game engine
 This is primarily a self-teaching project to learn a variety of tools and SDKs while improving my c++ skills
 
 ## Current Progress
-* WIP is texture importing
-* Basic Vulkan pipeline setup is complete with a rotating square being rendered in 3D space
+* WIP is OBJ import support, having the engine compile into a single library and moving the engine main function into its own project that implements the engine library
+* Basic Vulkan pipeline setup is complete with basic mesh and single texture support
+* Initial layout conversion of Vulkan tutorial to engine architecture is done allowing quad primitive creation and texture import via engine calls
 * CMake setup is functional and connects properly with VSCode
 
 
