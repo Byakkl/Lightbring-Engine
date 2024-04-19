@@ -26,3 +26,4 @@ I've also left out the compiled shaders and just kept the base files with the ba
 * GLFW v3.4
 * GLM v1.0.0
 * stb_image.h (https://github.com/nothings/stb)
+* TinyOBJLoader (https://github.com/tinyobjloader/tinyobjloader)

@@ -4,6 +4,7 @@
 #include <chrono>
 #include "engine.h"
 #include "fileio/import_image.h"
+#include "fileio/import_obj.h"
 #include "primitives.h"
 
 #ifdef RENDERER_VULKAN
@@ -127,8 +128,24 @@ Texture* LightbringEngine::importImage(const char* filePath, bool pushToGPU){
 }
 
 Mesh* LightbringEngine::importMesh(const char* filePath, bool pushToGPU){
-    std::cerr << "Import model not yet implemented" << std::endl;
+    Mesh* importedData;
+    try{
+        //Import the model data from the file
+        importedData = importModelFile(filePath);
+
+        //If the data is to be uploaded immediately; do so and clear the CPU data
+        if(pushToGPU){
+            renderer->uploadMesh(importedData);
+            importedData->releaseRawData();
+        }
+
+        //Add the data structure to the engine's tracker
+        meshes.push_back(importedData);
+    } catch(const std::exception& e){
+        std::cerr << e.what() << std::endl;
     return nullptr;
+    }
+    return importedData;
 }
 
 bool LightbringEngine::uploadImage(Texture* imageData){

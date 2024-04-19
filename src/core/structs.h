@@ -78,6 +78,8 @@ struct Mesh : Component{
 
     Mesh(){
         type = ComponentType::COMP_MESH;
+        rawData = nullptr;
+        rendererData = nullptr;
     }
     Mesh(std::vector<Vertex> _vertices, std::vector<uint16_t> _indices, unsigned char* _data){
         type = ComponentType::COMP_MESH;

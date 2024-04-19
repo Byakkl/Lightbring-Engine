@@ -12,4 +12,5 @@ target_sources(File_IO_Lib INTERFACE ${FILE_IO_SOURCES})
 
 target_include_directories(File_IO_Lib INTERFACE
     "G:/Coding Libraries/stb"
+    "G:/Coding Libraries/tinyOBJLoader"
     "../core")
