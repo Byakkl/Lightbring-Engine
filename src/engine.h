@@ -12,6 +12,12 @@ class LightbringEngine{
 public:
     bool isRunning;
 
+    /// @brief Stores the time point of the previous frame. Initialized as current time when engine is started
+    std::chrono::_V2::system_clock::time_point prevFrameTime;
+    
+    /// @brief Delta time in seconds since last frame
+    float deltaTime;
+
     bool start();
     bool update();
     void shutdown();

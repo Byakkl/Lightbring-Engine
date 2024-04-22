@@ -15,6 +15,9 @@ bool LightbringEngine::start(){
     //Flag the engine as running
     isRunning = true;    
 
+    //Initialize the previous frame tracker used for delta time calc
+    prevFrameTime = std::chrono::high_resolution_clock::now();
+
     //Select the correct renderer based on preprocessor defines
     #ifdef RENDERER_VULKAN
     renderer = new VulkanRenderer();
@@ -40,14 +43,13 @@ bool LightbringEngine::update(){
         if(activeScene == nullptr)
             return true;
         
-        //Static tracker for start time; set when this method is initially called
-        static auto startTime = std::chrono::high_resolution_clock::now();
-        
         //Get the current time 
         auto currentTime = std::chrono::high_resolution_clock::now();
-        //Find the difference between static start time and current time
-        float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+        //Find the difference between last frame's time and current time
+        deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevFrameTime).count();
 
+        //Update the timestamp for the start of the previous previous frame time to the current frame start time
+        prevFrameTime = currentTime;
 
         //Update the active scene
         activeScene->update(deltaTime);
