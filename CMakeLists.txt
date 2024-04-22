@@ -31,6 +31,8 @@ add_subdirectory("G:/Coding Libraries/glm-1.0.0" glm)
 configure_file(shaders/vert.spv ${CMAKE_CURRENT_BINARY_DIR}/shaders/vert.spv COPYONLY)
 configure_file(shaders/frag.spv ${CMAKE_CURRENT_BINARY_DIR}/shaders/frag.spv COPYONLY)
 configure_file(images/UVChecker_512.png ${CMAKE_CURRENT_BINARY_DIR}/images/UVChecker_512.png COPYONLY)
+configure_file(models/viking_room.png ${CMAKE_CURRENT_BINARY_DIR}/models/viking_room.png COPYONLY)
+configure_file(models/viking_room.obj ${CMAKE_CURRENT_BINARY_DIR}/models/viking_room.obj COPYONLY)
 
 #Add an exe for the engine
 add_executable(LightbringEngine ${BASE_SOURCES})

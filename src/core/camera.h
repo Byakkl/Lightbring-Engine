@@ -58,6 +58,18 @@ public:
     /// @return 
     bool getIsRendering();
 
+    /// @brief Returns the frame of view of the camera
+    /// @return 
+    float getFrameOfView();
+
+    /// @brief Returns the near clipping distance
+    /// @return 
+    float getNearClippingDistance();
+    
+    /// @brief Returns the far clipping distance
+    /// @return 
+    float getFarClippingDistance();
+
     /// @brief Returns a look at matrix for the camera
     /// @param cameraOrigin The position of the camera. The offset is applied automatically
     /// @param lookPosition The position that the camera is looking at

@@ -1,8 +1,11 @@
 #pragma once
+#define GLM_ENABLE_EXPERIMENTAL
 
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 enum ComponentType{
     COMP_TRANSFORM,
@@ -101,6 +104,8 @@ struct Transform : Component{
     glm::vec3 rotation;
     glm::vec3 scale;
 
+    glm::quat quatRot;
+
     //Void pointer used by the renderer to store its specific data container to reference when rendering
     void* rendererData;
 
@@ -111,6 +116,8 @@ struct Transform : Component{
         rotation = glm::vec3(0.0f);
         scale = glm::vec3(1.0f);
 
+        quatRot = glm::quat(glm::vec3(0,0,0));
+
         rendererData = nullptr;
 
         //Set initial flag to true to ensure it gets passed in initially
@@ -119,11 +126,14 @@ struct Transform : Component{
 
     void setPosition(glm::vec3 newPosition){
         position = newPosition;
+        //position.y *= -1;
         isDirty = true;
     }
 
     void setRotation(glm::vec3 newRotation){
-        rotation = newRotation;
+        //Deg to Rad
+        rotation = glm::radians(newRotation);
+        quatRot = glm::quat(rotation);
         isDirty = true;
     }
 
@@ -133,14 +143,7 @@ struct Transform : Component{
     }
 
     glm::mat4 getRotationMatrix(){
-        //ZXY rotation order
-        glm::mat4 rotationMatrix = glm::mat4(1.0f);
-
-        rotationMatrix = glm::rotate(rotationMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-        rotationMatrix = glm::rotate(rotationMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-        rotationMatrix = glm::rotate(rotationMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-
-        return rotationMatrix;
+        return glm::toMat4(quatRot);
     }
 
     glm::mat4 getTransformMatrix(){
