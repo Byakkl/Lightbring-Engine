@@ -11,12 +11,15 @@
 #include <algorithm>
 #include <glm/glm.hpp>
 
+#include "mesh.h"
+#include "material.h"
+
 #include "debug_vulkan.h"
 #include "sys_vulkan.h"
 #include "util_vulkan.h"
-#include "../../fileio/util_io.h"
+#include "util_io.h"
 #include "structs_model.h"
-#include "../../core/structs.h"
+#include "rendererData.h"
 
 void VulkanRenderer::initialize(uint32_t width, uint32_t height){
     windowWidth = width;
@@ -209,15 +212,15 @@ void VulkanRenderer::createTexture(Texture* image){
     createImageView(imageData, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 
     //Pass the Vulkan handle container to the image object
-    image->rendererData = imageData;
+    image->pRendererData->rendererData = imageData;
 }
 
 void VulkanRenderer::unloadTexture(Texture* image){
-    if(image->rendererData == nullptr)
+    if(image->pRendererData->rendererData == nullptr)
         return;
 
     //Cast to the Vulkan data container 
-    ImageData* imageData = static_cast<ImageData*>(image->rendererData);
+    ImageData* imageData = static_cast<ImageData*>(image->pRendererData->rendererData);
     //Invoke the cleanup method to release the memory
     imageData->cleanup(device);
 
@@ -225,7 +228,7 @@ void VulkanRenderer::unloadTexture(Texture* image){
     delete imageData;
 
     //Null out the pointer as all data is cleaned
-    image->rendererData = nullptr;
+    image->pRendererData->rendererData = nullptr;
 }
 
 void VulkanRenderer::uploadMesh(Mesh* mesh){
@@ -237,15 +240,15 @@ void VulkanRenderer::uploadMesh(Mesh* mesh){
     createIndexBuffer(mesh, meshData);
 
     //Pass the Vulkan handle container to the mesh object
-    mesh->rendererData = meshData;
+    mesh->pRendererData->rendererData = meshData;
 }
 
 void VulkanRenderer::unloadMesh(Mesh* mesh){
-    if(mesh->rendererData == nullptr)
+    if(mesh->pRendererData == nullptr)
         return;
 
     //Cast to the Vulkan data container 
-    MeshData* meshData = static_cast<MeshData*>(mesh->rendererData);
+    MeshData* meshData = static_cast<MeshData*>(mesh->pRendererData->rendererData);
     
     //Invoke the cleanup method to release the Vulkan memory
     meshData->cleanup(device);
@@ -254,7 +257,7 @@ void VulkanRenderer::unloadMesh(Mesh* mesh){
     delete meshData;
 
     //Null out the pointer as all data is cleaned
-    mesh->rendererData = nullptr;
+    mesh->pRendererData = nullptr;
 }
 
 void VulkanRenderer::registerCamera(Camera* camera){
@@ -778,10 +781,10 @@ void VulkanRenderer::createTextureImage(const Texture* texture, ImageData* outpu
         stagingBufferMemory);
     
     //Transfer the image data into the staging buffer if any is present
-    if(texture->rawData != nullptr){
+    if(texture->pRendererData->rawData != nullptr){
         void* data;
         vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-        memcpy(data, texture->rawData, static_cast<size_t>(imageSize));
+        memcpy(data, texture->pRendererData->rawData, static_cast<size_t>(imageSize));
         vkUnmapMemory(device, stagingBufferMemory);
     }
 
@@ -812,7 +815,7 @@ void VulkanRenderer::updateDescriptorSet(std::vector<VkWriteDescriptorSet>& desc
     Component* matComp = object->getComponent(ComponentType::COMP_MATERIAL);
     if(matComp){
         //Albedo
-        ImageData* albedoData = static_cast<ImageData*>(static_cast<Material*>(matComp)->albedo->rendererData);
+        ImageData* albedoData = static_cast<ImageData*>(static_cast<Material*>(matComp)->albedo->pRendererData->rendererData);
         VkDescriptorImageInfo* imageInfo = new VkDescriptorImageInfo();
         imageInfo->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfo->imageView = albedoData->imageViews[0];
@@ -1011,7 +1014,7 @@ void VulkanRenderer::recordObjectRenderCommandBuffer(VkCommandBuffer commandBuff
     for(int idx = 0; idx < objectCount; idx++){
         //Fetch and cast the mesh components and renderer data
         meshComp = static_cast<Mesh*>(objects->getComponent(ComponentType::COMP_MESH));
-        meshData = static_cast<MeshData*>(meshComp->rendererData);
+        meshData = static_cast<MeshData*>(meshComp->pRendererData->rendererData);
 
         //Bind the vertex buffer to the shader bindings
         VkBuffer vertexBuffers[] = {meshData->vertexBufferSet.buffer};
@@ -1215,8 +1218,8 @@ VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code)
 
 void VulkanRenderer::createGraphicsPipeline(){
     //Read the shader code files
-    auto vertShaderCode = readFile("shaders/vert.spv");
-    auto fragShaderCode = readFile("shaders/frag.spv");
+    auto vertShaderCode = readFile(vertexShaderPath);
+    auto fragShaderCode = readFile(fragmentShaderPath);
 
     #ifdef DEBUG_SHADER_FILE_LENGTH_ON_READ
     std::cout << "Vertex shader loaded with length: " << vertShaderCode.capacity() << std::endl;

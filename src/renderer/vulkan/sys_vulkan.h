@@ -2,10 +2,10 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vector>
-#include "../../core/renderer.h"
-#include "../../core/structs.h"
+#include "renderer.h"
+#include "mesh.h"
 #include "structs_vulkan.h"
-#include "../../core/camera.h"
+#include "camera_p.h"
 
 class VulkanRenderer : public Renderer{
 public:
@@ -37,6 +37,7 @@ private:
     const int MAX_OBJECT_DESCRIPTOR_SETS = 10;
     //Constant to define the maximum number of sets in the camera pool
     const int MAX_CAMERA_DESCRIPTOR_SETS = 5;
+
     //Control if validation layers will be used through the define of NDEBUG
     #ifndef NDEBUG
         const bool enableValidationLayers = false;

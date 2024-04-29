@@ -1,15 +1,14 @@
 set(CORE_SOURCES
-    structs.h
-    primitives.h
-    object.cpp
-    scene.cpp
-    renderer.h
-    camera.cpp
-    event.h)
+    ${CMAKE_CURRENT_SOURCE_DIR}/camera.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/material.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/mesh.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/object.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/primitives.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/scene.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/texture.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/transform.cpp
+)
 
-add_library(Core_Lib ${CORE_SOURCES})
-
-#Link the dependent libraries
-target_link_libraries(Core_Lib PRIVATE
-    glm
-    )
+target_sources(LightbringEngine PRIVATE
+    ${CORE_SOURCES}
+)

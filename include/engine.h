@@ -1,22 +1,21 @@
 #pragma once
 
-#include "event.h"
+#include <memory>
 #include "renderer.h"
-#include "fileio/import_image.h"
 #include "scene.h"
-#include "structs.h"
 #include "camera.h"
-#include "primitives.h"
+#include "material.h"
+#include "mesh.h"
+#include "texture.h"
+#include "meshPrimitive.h"
 
 class LightbringEngine{
 public:
-    bool isRunning;
-
-    /// @brief Stores the time point of the previous frame. Initialized as current time when engine is started
-    std::chrono::_V2::system_clock::time_point prevFrameTime;
-    
     /// @brief Delta time in seconds since last frame
     float deltaTime;
+
+    LightbringEngine();
+    ~LightbringEngine();
 
     bool start();
     bool update();
@@ -75,27 +74,11 @@ public:
     /// @param active When True a camera will render every frame
     void setCameraActive(Camera*, bool);
 
+    void setVertexShaderPath(std::string);
+
+    void setFragmentShaderPath(std::string);
+
 private:
-    //The active renderer instance
-    Renderer* renderer;
-
-    //List of all image handles
-    std::vector<Texture*> textures;
-    //List of all mesh handles
-    std::vector<Mesh*> meshes;
-    //List of all loaded scenes
-    std::vector<Scene*> scenes;
-    //Pointer to the active scene
-    Scene* activeScene;
-    //List of all created objects
-    std::vector<Object*> objects;
-    //List of all created materials
-    std::vector<Material*> materials;
-    //List of all created cameras
-    std::vector<Camera*> cameras;
-
-    /// @brief Method used internally to respond to window resize event invocations
-    /// @param width The new width of the window
-    /// @param height The new height of the window
-    void windowResizedCallback(const uint32_t, const uint32_t);
+    class LightbringEngineImpl;
+    std::unique_ptr<LightbringEngineImpl> pImpl;
 };

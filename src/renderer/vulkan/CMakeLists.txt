@@ -1,28 +1,12 @@
 #Specify the files to be included in this subdirectory library
 set(RENDERER_VULKAN_SOURCES
-    structs_vulkan.h
-    sys_vulkan.h
-    sys_vulkan.cpp
-    util_vulkan.h
-    structs_model.h)
+    ${CMAKE_CURRENT_SOURCE_DIR}/structs_vulkan.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/sys_vulkan.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/sys_vulkan.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/util_vulkan.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/structs_model.h
+)
 
-#Add the dependecies 
-add_subdirectory("G:/Coding Libraries/glfw-3.4" glfw)
-
-#Create the library
-add_library(Renderer_Vulkan_Lib ${RENDERER_VULKAN_SOURCES})
-
-#Include the dependencies to the library
-target_include_directories(Renderer_Vulkan_Lib PRIVATE 
-    "C:/VulkanSDK/1.3.275.0/include")
-
-#Link the dependent directory
-target_link_directories(Renderer_Vulkan_Lib PRIVATE 
-    "C:/VulkanSDK/1.3.275.0/Lib")
-
-#Link the dependent libraries
-target_link_libraries(Renderer_Vulkan_Lib PRIVATE
-    "vulkan-1.lib"    
-    glfw
-    glm
-    Core_Lib)
+target_sources(LightbringEngine PRIVATE
+    ${RENDERER_VULKAN_SOURCES}
+)

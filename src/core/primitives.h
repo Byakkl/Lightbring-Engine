@@ -1,10 +1,6 @@
 #pragma once
 
-#include "structs.h"
-
-enum MeshPrimitive{
-    PRIM_QUAD
-};
+#include "mesh.h"
 
 const Mesh quad{
     {

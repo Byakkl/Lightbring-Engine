@@ -34,7 +34,7 @@ public:
         //Describes type of data for the attribute. Implicitly defines the byte size of the attribute data
         attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
         //Specifies the number of bytes since the start of the per-vertex data
-        attributeDescriptions[0].offset = offsetof(Vertex, pos);
+        attributeDescriptions[0].offset = offsetof(Vertex, position);
 
         //Color data description
         attributeDescriptions[1].binding = 0;

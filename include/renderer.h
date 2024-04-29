@@ -1,7 +1,8 @@
 #pragma once
 
+#include <string>
 #include "event.h"
-#include "structs.h"
+#include "mesh.h"
 #include "camera.h"
 #include "object.h"
 
@@ -15,6 +16,12 @@ public:
 
     /// @brief Stores the height of the window
     uint32_t windowHeight;
+
+    /// @brief Path to the vertex shader file
+    std::string vertexShaderPath;
+
+    /// @brief Path to the fragment shader file
+    std::string fragmentShaderPath;
 
     /// @brief Pure virtual method used to initialize a renderer
     virtual void initialize(uint32_t, uint32_t) = 0;

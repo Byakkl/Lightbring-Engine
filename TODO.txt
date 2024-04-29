@@ -1,12 +1,10 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
-2024-04-19
-- ENGINE: Fix object rotation math
-- ENGINE: Clarity of degrees/radians for rotation and transform
-- ENGINE: Fix deltaTime to be delta between frames, not delta since time started
+
 
 TODO:
+- ENGINE: Clarity of degrees/radians for rotation and transform
 - ENGINE: Define standards for method parameter naming
 - VULKAN: Decide on a better method for storing and referencing queue family indices than a vector (requestQueueFamilies, queueFamilies). 
     A fetch method to more explicitly declare what to fetch instead of magic index numbers. Potentially a map structure
@@ -20,16 +18,30 @@ TODO:
 - VULKAN: Look into aliasing large buffers and the various functions/flags that support this
 - VULKAN: Look into Push Constants for moving frequently changing values into a shader. Eg for MVP uniform buffer
 - VULKAN: Look into supporting multiple descriptor sets
-- ENGINE: Create an API .h that can be used externally for when the engine is built as a library and not an executable
-- CMAKE: Setup the build to create a single library file
-- CMAKE: Setup the build to no longer create an executable
-- ENGINE: Remove main() method
 - ENGINE: Implement an event queue for engine events.
     This might not be needed for a while. It would be useful if there are engine threads that need to communicate back to the main engine thread
 - ENGINE: Add tracking for the window resize event subscription id
     Not really necessary while there is just the one renderer and no ability to switch/regenerate it as the only time it would unregister is on shutdown when it no longer matters
+- ENGINE: Add Camera destructor
+- ENGINE: Add better handling for Object::cleanup() to ensure that the ObjectImpl::cleanup() is still invoked when the virtual is overriden
+- ENGINE: Fix the glfw callback to shut down the engine when the window is supposed to be closed
+- ENGINE: Add better handling for shutting down the engine
+- ENGINE: Add better public facing handling for tracking the engine state (ie. isRunning should probably be re-exposed via a readonly variable)
 
 DONE:
+2024-04-23 - 2024-04-29
+- ENGINE: Implement PImpl idiom to remove internal use and private variables from public facing headers
+- ENGINE: Split up the large structure file into individual classes for better clarity and maintainence
+- ENGINE: Add support for the engine to inform the renderer where the shaders are located
+- ENGINE: Create public headers that can be used externally for when the engine is built as a library and not an executable
+- CMAKE: Setup the build to create a single library file
+- CMAKE: Setup the build to no longer create an executable
+- ENGINE: Remove main() method
+2024-04-22 - 2024-04-22
+- ENGINE: Fix deltaTime to be delta between frames, not delta since time started
+2024-04-19 - 2024-04-22
+- ENGINE: Fix object rotation math
+- ENGINE: Fix coordinate space matrices (MVP generation)
 2024-04-18 - 2024-04-19
 - VULKAN: Implement OBJ model imports
 2024-04-16 - 2024-04-17

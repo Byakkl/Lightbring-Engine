@@ -1,7 +1,8 @@
 #pragma once
 
+#include <memory>
 #include <vector>
-#include "structs.h"
+#include "transform.h"
 
 class Object {
 public:
@@ -14,6 +15,8 @@ public:
     Component* getComponent(const ComponentType);
     virtual void cleanup();
     virtual void update(float);
+
 private:
-    std::vector<Component*> components;
+    class ObjectImpl;
+    std::unique_ptr<ObjectImpl> pImpl;
 };

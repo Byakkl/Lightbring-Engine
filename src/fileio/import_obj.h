@@ -2,9 +2,9 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 
 #include <stdexcept>
-#include <tiny_obj_loader.h>
-#include "structs.h"
 #include <iostream>
+#include <tiny_obj_loader.h>
+#include "mesh.h"
 
 static Mesh* importModelFile(const char* modelPath){
     Mesh* mesh = new Mesh();
@@ -22,7 +22,7 @@ static Mesh* importModelFile(const char* modelPath){
         for(const auto& index : shape.mesh.indices){
             Vertex vertex{};
             
-            vertex.pos = {
+            vertex.position = {
                 attrib.vertices[3 * index.vertex_index + 0],
                 attrib.vertices[3 * index.vertex_index + 1],
                 attrib.vertices[3 * index.vertex_index + 2]
