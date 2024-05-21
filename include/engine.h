@@ -80,5 +80,5 @@ public:
 
 private:
     class LightbringEngineImpl;
-    std::unique_ptr<LightbringEngineImpl> pImpl;
+    static std::unique_ptr<LightbringEngineImpl> pImpl;
 };

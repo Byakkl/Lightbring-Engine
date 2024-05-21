@@ -1,7 +1,9 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
-
+2024-05-16-2024-05-21
+- ENGINE: Create singleton instance of the engine class
+- ENGINE: Create scaffold for message system
 
 TODO:
 - ENGINE: Clarity of degrees/radians for rotation and transform
@@ -27,6 +29,10 @@ TODO:
 - ENGINE: Fix the glfw callback to shut down the engine when the window is supposed to be closed
 - ENGINE: Add better handling for shutting down the engine
 - ENGINE: Add better public facing handling for tracking the engine state (ie. isRunning should probably be re-exposed via a readonly variable)
+- CLEANUP: Create namespaces
+- PROJECT: Create dependency references for external libraries
+- ENGINE: Add Engine.GetRenderer() method to allow interaction with render system
+- ENGINE: Update stored pointers to be smart pointers and returned pointers from methods that don't transfer ownership to be references
 
 DONE:
 2024-04-23 - 2024-04-29

@@ -36,6 +36,7 @@ public:
     std::vector<Camera*> cameras;
 
     LightbringEngineImpl();
+    ~LightbringEngineImpl();
 
     /// @brief Method used internally to respond to window resize event invocations
     /// @param width The new width of the window

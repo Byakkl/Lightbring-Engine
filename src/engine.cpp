@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <chrono>
+#include <mutex>
 #include "engine_p.h"
 #include "fileio/import_image.h"
 #include "fileio/import_obj.h"
@@ -12,11 +13,16 @@
 #include "renderer/vulkan/sys_vulkan.h"
 #endif
 
-LightbringEngine::LightbringEngine() : pImpl(std::make_unique<LightbringEngineImpl>()){
-    //Select the correct renderer based on preprocessor defines
-    #ifdef RENDERER_VULKAN
-    pImpl->renderer = new VulkanRenderer();
-    #endif
+//Definition of static implementation pointer
+std::unique_ptr<LightbringEngine::LightbringEngineImpl> LightbringEngine::pImpl = nullptr;
+//Flag to ensure initialization only occurs once
+std::once_flag pImplInitFlag;
+
+LightbringEngine::LightbringEngine() {
+    //Create the static instance of the engine implementation
+    std::call_once(pImplInitFlag, []() {
+        pImpl = std::make_unique<LightbringEngineImpl>();
+    });
 }
 
 LightbringEngine::~LightbringEngine(){}
@@ -295,8 +301,18 @@ void LightbringEngine::setFragmentShaderPath(std::string path){
 }
 
 LightbringEngine::LightbringEngineImpl::LightbringEngineImpl(){
-    renderer = nullptr;
+    //Select the correct renderer based on preprocessor defines
+    #ifdef RENDERER_VULKAN
+    renderer = new VulkanRenderer();
+    #endif
+    
     activeScene = nullptr;
+}
+
+LightbringEngine::LightbringEngineImpl::~LightbringEngineImpl(){
+    //Clean up the renderer
+    if(renderer)
+        delete renderer;
 }
 
 void LightbringEngine::LightbringEngineImpl::windowResizedCallback(const uint32_t width, const uint32_t height){
