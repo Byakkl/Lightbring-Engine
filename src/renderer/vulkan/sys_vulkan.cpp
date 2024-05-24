@@ -21,19 +21,16 @@
 #include "structs_model.h"
 #include "rendererData.h"
 
-void VulkanRenderer::initialize(uint32_t width, uint32_t height){
-    windowWidth = width;
-    windowHeight = height;
-    initWindow();
-    initVulkan();
+void VulkanRenderer::initialize(GLFWwindow* a_window, int a_width, int a_height, std::reference_wrapper<Event<int,int>> a_windowResizeEventRef){
+    windowResizedEvent = a_windowResizeEventRef;
+    windowResizedEventSubId = windowResizedEvent->get().Register([this](uint32_t width, uint32_t height) {windowResizedCallback(width, height);});
+
+    width = a_width;
+    height = a_height;
+    initVulkan(a_window);
 }
 
 bool VulkanRenderer::render(Camera* camera, std::vector<Object*> objects){
-    if(glfwWindowShouldClose(window))
-        return false;
-
-    glfwPollEvents();
-
     //Wait for the presentation fence for the frame to complete
     //vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
     vkWaitForFences(device, 1, &renderFence, VK_TRUE, UINT64_MAX);
@@ -131,8 +128,7 @@ bool VulkanRenderer::render(Camera* camera, std::vector<Object*> objects){
     //Queue the presentation of the frame
     result = vkQueuePresentKHR(presentQueue, &presentInfo);
     
-    if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized){
-        framebufferResized = false;
+    if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR){
         recreateSwapChain();
     }
     else if (result != VK_SUCCESS)
@@ -145,6 +141,7 @@ bool VulkanRenderer::render(Camera* camera, std::vector<Object*> objects){
 }
 
 void VulkanRenderer::cleanup(){
+    windowResizedEvent->get().Unregister(windowResizedEventSubId);
     //Wait for the logical device to finish operations before exiting main loop
     vkDeviceWaitIdle(device);
 
@@ -195,12 +192,6 @@ void VulkanRenderer::cleanup(){
 
     //Clean up the Vulkan instance
     vkDestroyInstance(instance, nullptr);
-        
-    //Clean up the created window
-    glfwDestroyWindow(window);
-        
-    //Clean up GLFW
-    glfwTerminate();
 }
 
 void VulkanRenderer::createTexture(Texture* image){
@@ -328,25 +319,6 @@ bool VulkanRenderer::checkValidationLayerSupport(){
     return true;
 }
 
-void VulkanRenderer::initWindow(){
-        //Initialize GLFW
-        glfwInit();
-        //Disable creation of OpenGL context
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-        //Create a new window with resolution 800x600 and name Vulkan
-        //4th parameter can specify a monitor to open on
-        //5th parameter is relevant to OpenGL
-        window = glfwCreateWindow(windowWidth, windowHeight, "Vulkan", nullptr, nullptr);
-        //Set a pointer to this instance of VulkanRenderer that can be used in the callback
-        glfwSetWindowUserPointer(window, this);
-        //Set a callback to be invoked by GLFW when the window is resized
-        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
-
-        //Invoke the window resize event now that the window is created. There may be no listeners at this time but it's consistent at least
-        windowResizedEvent.Invoke(windowWidth, windowHeight);
-    }
-
 void VulkanRenderer::createInstance(){
     //If validation layers are enabled but any are unsupported then throw an error
     if(enableValidationLayers && !checkValidationLayerSupport()){
@@ -403,10 +375,10 @@ void VulkanRenderer::createInstance(){
     }
 }
  
-void VulkanRenderer::initVulkan(){
+void VulkanRenderer::initVulkan(GLFWwindow* window){
     createInstance();
     setupDebugMessenger();
-    createSurface();
+    createSurface(window);
     pickPhysicalDevice();
     createLogicalDevice();
 
@@ -1466,14 +1438,6 @@ void VulkanRenderer::cleanupSwapChain(){
 }
 
 void VulkanRenderer::recreateSwapChain(){
-    //Pauses the render system while the window is minimized
-    int width = 0, height = 0;
-    glfwGetFramebufferSize(window, &width, &height);
-    while(width == 0 || height == 0){
-        glfwGetFramebufferSize(window, &width, &height);
-        glfwWaitEvents();
-    }
-
     //Ensure any commands using the device and swap chain are completed before manipulating the swap chain
     vkDeviceWaitIdle(device);
 
@@ -1488,9 +1452,6 @@ void VulkanRenderer::recreateSwapChain(){
     createDepthResources();
     //Regenerate the buffers for the swap chain images
     createFrameBuffers();
-
-    //Call the window resized event
-    windowResizedEvent.Invoke(width, height);
 }
 
 void VulkanRenderer::createSwapChain(){
@@ -1584,8 +1545,8 @@ void VulkanRenderer::createSwapChain(){
     swapChainExtent = extent;
 }
 
-void VulkanRenderer::createSurface(){
-    //Create and store a reference to the window surface, associating it with the stored window and Vulkan instance
+void VulkanRenderer::createSurface(GLFWwindow* window){
+    //Create and store a reference to the window surface, associating it with the GLFW window and Vulkan instance
     if(glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS){
         throw std::runtime_error("Failed to craete window surface");
     }
@@ -1825,9 +1786,6 @@ VkExtent2D VulkanRenderer::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capa
         return capabilities.currentExtent;
     //Otherwise fetch the width and height of the frame buffer from GLFW and clamp it within the allowed min/max range
     else{
-        int width, height;
-        glfwGetFramebufferSize(window, &width, &height);
-
         VkExtent2D actualExtent = {
             static_cast<uint32_t>(width),
             static_cast<uint32_t>(height)
@@ -2082,9 +2040,11 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanRenderer::debugCallback(
         return VK_FALSE;
 }
 
-void VulkanRenderer::framebufferResizeCallback(GLFWwindow* window, int width, int height){
-    //Cast the pointer to the VulkanRenderer class
-    auto app = reinterpret_cast<VulkanRenderer*>(glfwGetWindowUserPointer(window));
-    //Set the framebufferResized flag so the VulkanRenderer instance can recreate the swap chain and buffers
-    app->framebufferResized = true;
+void VulkanRenderer::windowResizedCallback(int a_width, int a_height){
+    //Update the locally stored width and height
+    width = a_width;
+    height = a_height;
+
+    //Recreate the swap chain
+    recreateSwapChain();
 }

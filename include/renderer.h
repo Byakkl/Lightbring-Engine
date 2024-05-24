@@ -1,21 +1,17 @@
 #pragma once
-
 #include <string>
+#include <optional>
 #include "event.h"
 #include "mesh.h"
 #include "camera.h"
 #include "object.h"
 
+class GLFWwindow;
+
 class Renderer {
 public:
-    /// @brief Event invoked when the window is resized
-    Event<uint32_t, uint32_t> windowResizedEvent;
-
-    /// @brief Stores the width of the window
-    uint32_t windowWidth;
-
-    /// @brief Stores the height of the window
-    uint32_t windowHeight;
+    /// @brief Reference to event invoked when the window is resized
+    std::optional<std::reference_wrapper<Event<int, int>>> windowResizedEvent;
 
     /// @brief Path to the vertex shader file
     std::string vertexShaderPath;
@@ -24,7 +20,10 @@ public:
     std::string fragmentShaderPath;
 
     /// @brief Pure virtual method used to initialize a renderer
-    virtual void initialize(uint32_t, uint32_t) = 0;
+    /// @param a_window The GLFW window instance to be used
+    /// @param a_width The width of the window
+    /// @param a_height The height of the window
+    virtual void initialize(GLFWwindow*, int, int, std::reference_wrapper<Event<int,int>>) = 0;
 
     /// @brief Pure virtual method used to run the renderer
     /// @param camera The camera that is being rendered

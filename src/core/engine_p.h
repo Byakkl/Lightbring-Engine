@@ -1,5 +1,7 @@
 #pragma once
 
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 #include "engine.h"
 
 #include "renderer.h"
@@ -16,6 +18,17 @@ public:
 
     /// @brief Stores the time point of the previous frame. Initialized as current time when engine is started
     std::chrono::_V2::system_clock::time_point prevFrameTime;
+
+    //Stores a reference to a created window
+    GLFWwindow* window;
+    /// @brief Stores the width of the window
+    int windowWidth;
+
+    /// @brief Stores the height of the window
+    int windowHeight;
+    
+    /// @brief Event invoked when the window is resized
+    Event<int, int> windowResizedEvent;
 
     //The active renderer instance
     Renderer* renderer;
@@ -38,8 +51,10 @@ public:
     LightbringEngineImpl();
     ~LightbringEngineImpl();
 
+    void initializeWindow(const int, const int);
+
     /// @brief Method used internally to respond to window resize event invocations
     /// @param width The new width of the window
     /// @param height The new height of the window
-    void windowResizedCallback(const uint32_t, const uint32_t);
+    static void framebufferResizeCallback(GLFWwindow*, int, int);
 };

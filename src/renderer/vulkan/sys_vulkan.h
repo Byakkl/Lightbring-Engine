@@ -1,5 +1,7 @@
 #pragma once
-#define GLFW_INCLUDE_VULKAN
+#ifndef GLFW_INCLUDE_VULKAN
+    #define GLFW_INCLUDE_VULKAN
+#endif
 #include <GLFW/glfw3.h>
 #include <vector>
 #include "renderer.h"
@@ -10,9 +12,7 @@
 class VulkanRenderer : public Renderer{
 public:
     /// @brief Implementation of Renderer pure virtual method
-    /// @param width Desired width of the window
-    /// @param height Desired height of the window
-    void initialize(uint32_t, uint32_t) override;
+    void initialize(GLFWwindow*, int, int, std::reference_wrapper<Event<int,int>>) override;
 
     bool render(Camera*, std::vector<Object*>) override;
 
@@ -55,11 +55,13 @@ private:
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
-
-    //Stores a reference to a created window
-    GLFWwindow* window;
     //Stores the Vulkan instance
     VkInstance instance;
+
+    //Locally stores the width and height of the window. Updated by Engine via windowResizedEvent
+    int width,height;
+    int windowResizedEventSubId;
+
     //Stores the Vulkan debug messenger instance
     VkDebugUtilsMessengerEXT debugMessenger;
     //Stores the physical device to be targeted by Vulkan; this is implicitly destroyed alongside the instance
@@ -125,8 +127,6 @@ private:
     VkFence renderFence;
     //Stores the current frame index; used as an index into semaphores
     uint32_t currentFrame = 0;
-    //Stores flag to track if a resize has occurred
-    bool framebufferResized = false;
 
     //Stores the texture sampler handle
     VkSampler textureSampler;
@@ -135,18 +135,14 @@ private:
     ImageData depthImage;
 
     PushConstants pushConstants;
-
     
     std::vector<VkImage> images;
-
-    /// @brief Initializes the window used to render to
-    void initWindow();
 
     /// @brief Creates the Vulkan instance
     void createInstance();
 
     /// @brief Initializes Vulkan
-    void initVulkan();
+    void initVulkan(GLFWwindow*);
     
     /// @brief Gets the extensions required by the GLFW instance
     /// @return 
@@ -200,7 +196,8 @@ private:
     void createSwapChain();
     
     /// @brief Creates the window surface that will be the render target
-    void createSurface();
+    /// @param window The GLFW window instance to create the surface for
+    void createSurface(GLFWwindow*);
     
     /// @brief Creates the logical device and queues to be used by Vulkan
     void createLogicalDevice();
@@ -399,9 +396,8 @@ private:
         const VkDebugUtilsMessengerCallbackDataEXT*,
         void*);
 
-    /// @brief Callback used by GLFW when a resize occurs
-    /// @param  window
+    /// @brief Method used to respond to windowResizedEvent invocation
     /// @param  width
     /// @param  height
-    static void framebufferResizeCallback(GLFWwindow*, int, int);
+    void windowResizedCallback(int, int);
 };

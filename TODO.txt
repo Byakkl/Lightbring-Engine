@@ -1,9 +1,8 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
-2024-05-16-2024-05-21
-- ENGINE: Create singleton instance of the engine class
-- ENGINE: Create scaffold for message system
+2024-05-24
+- ENGINE: Build hardware input system using GLFW
 
 TODO:
 - ENGINE: Clarity of degrees/radians for rotation and transform
@@ -33,8 +32,17 @@ TODO:
 - PROJECT: Create dependency references for external libraries
 - ENGINE: Add Engine.GetRenderer() method to allow interaction with render system
 - ENGINE: Update stored pointers to be smart pointers and returned pointers from methods that don't transfer ownership to be references
+- ENGINE: Move engine update method to an internal thread loop to remove the need for external implementation to call it
+- ENGINE: Validate engine is threadsafe
 
 DONE:
+2024-05-22 - 2024-05-24
+- ENGINE: Move GLFW initialization out of renderer and do it in the engine instead
+- ENGINE: Create new bindings for GLFW events (pollEvents and callbacks) at the engine level
+- VULKAN: Update the flow for recreating the framebuffer when a window size change is invoked
+2024-05-16 - 2024-05-21
+- ENGINE: Create singleton instance of the engine class
+- ENGINE: Create scaffold for message system
 2024-04-23 - 2024-04-29
 - ENGINE: Implement PImpl idiom to remove internal use and private variables from public facing headers
 - ENGINE: Split up the large structure file into individual classes for better clarity and maintainence

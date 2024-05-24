@@ -11,6 +11,10 @@ public:
     /// @brief Shorthand for the function type used by the instance of the template
     using FunctionType = std::function<void(Args...)>;
 
+    ~Event(){
+        listeners.clear();
+    }
+
     /// @brief Registers a callback to the event
     /// @param listener The callback to register with
     /// @return Returns an id used for unregistering from the event

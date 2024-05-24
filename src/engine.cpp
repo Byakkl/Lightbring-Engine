@@ -36,9 +36,9 @@ bool LightbringEngine::start(){
 
     //Initialize any engine data
     try{
+        pImpl->initializeWindow(800,600);
         //Initialize the engine's renderer
-        pImpl->renderer->initialize(800, 600);
-        pImpl->renderer->windowResizedEvent.Register([this](uint32_t width, uint32_t height) {pImpl->windowResizedCallback(width, height);});
+        pImpl->renderer->initialize(pImpl->window, 800, 600, std::ref(pImpl->windowResizedEvent));
     } catch (const std::exception& e){
         std::cerr << e.what() << std::endl;
         shutdown();
@@ -65,6 +65,13 @@ bool LightbringEngine::update(){
         //Update the active scene
         pImpl->activeScene->update(deltaTime);
 
+        
+        if(glfwWindowShouldClose(pImpl->window))
+            return false;
+
+        glfwPollEvents();
+
+
         //Render any active cameras
         for(auto camera : pImpl->activeScene->sceneCameras){
             if(!camera->getIsRendering())
@@ -90,14 +97,12 @@ void LightbringEngine::shutdown(){
     //Clean up any image data
     for(auto texture : pImpl->textures){
         pImpl->renderer->unloadTexture(texture);
-        texture->pRendererData->releaseRawData();
         delete texture;
     }
 
     //Clean up any model data
     for(auto mesh : pImpl->meshes){
         pImpl->renderer->unloadMesh(mesh);
-        mesh->pRendererData->releaseRawData();
         delete mesh;
     }
 
@@ -267,7 +272,7 @@ Camera* LightbringEngine::createCamera(){
     Camera* camera = new Camera();
 
     //Initialize the aspect ratio
-    float ratio = (float)(pImpl->renderer->windowWidth) / (float)(pImpl->renderer->windowHeight);
+    float ratio = (float)(pImpl->windowWidth) / (float)(pImpl->windowHeight);
     camera->setAspectRatio(ratio);
 
     //Add it to the list of cameras
@@ -313,10 +318,52 @@ LightbringEngine::LightbringEngineImpl::~LightbringEngineImpl(){
     //Clean up the renderer
     if(renderer)
         delete renderer;
+
+    //Clean up the created window
+    glfwDestroyWindow(window);
+
+    //Clean up GLFW
+    glfwTerminate();
 }
 
-void LightbringEngine::LightbringEngineImpl::windowResizedCallback(const uint32_t width, const uint32_t height){
-    float newAspect = (float)width / (float)height;
-    for(auto camera : cameras)
+void LightbringEngine::LightbringEngineImpl::initializeWindow(const int a_width, const int a_height){
+            //Initialize GLFW
+        glfwInit();
+        //Disable creation of OpenGL context
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+        //Create a new window with resolution 800x600 and name Vulkan
+        //4th parameter can specify a monitor to open on
+        //5th parameter is relevant to OpenGL
+        window = glfwCreateWindow(a_width, a_height, "Vulkan", nullptr, nullptr);
+        //Set a pointer to this instance of VulkanRenderer that can be used in the callback
+        glfwSetWindowUserPointer(window, this);
+        //Set a callback to be invoked by GLFW when the window is resized
+        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+
+        windowWidth = a_width;
+        windowHeight = a_height;
+        //Invoke the window resize event now that the window is created. There may be no listeners at this time but it's consistent at least
+        windowResizedEvent.Invoke(windowWidth, windowHeight);
+}
+
+void LightbringEngine::LightbringEngineImpl::framebufferResizeCallback(GLFWwindow* a_window, int a_width, int a_height){
+    //Cast the pointer to the engine implementation class
+    auto app = reinterpret_cast<LightbringEngineImpl*>(glfwGetWindowUserPointer(a_window));
+        
+    //Pauses while the window is minimized
+    glfwGetFramebufferSize(a_window, &a_width, &a_height);
+    while(a_width == 0 || a_height == 0){
+        glfwGetFramebufferSize(a_window, &a_width, &a_height);
+        glfwWaitEvents();
+    }
+    app->windowWidth = a_width;
+    app->windowHeight = a_height;
+    //Update the camera aspect ratios
+    float newAspect = (float)a_width / (float)a_height;
+    for(auto camera : app->cameras)
         camera->setAspectRatio(newAspect);
+
+    //Invoke the window resize method to inform listening systems of the change
+    app->windowResizedEvent.Invoke(app->windowWidth, app->windowHeight);
 }
