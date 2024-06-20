@@ -33,6 +33,9 @@ public:
     //The active renderer instance
     Renderer* renderer;
 
+    //Input system instance
+    Input_Internal* input;
+
     //List of all image handles
     std::vector<Texture*> textures;
     //List of all mesh handles
@@ -52,6 +55,8 @@ public:
     ~LightbringEngineImpl();
 
     void initializeWindow(const int, const int);
+
+    void initializeInput(GLFWwindow*);
 
     /// @brief Method used internally to respond to window resize event invocations
     /// @param width The new width of the window

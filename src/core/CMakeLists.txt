@@ -1,5 +1,7 @@
 set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/camera.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/input.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/input_internal.h
     ${CMAKE_CURRENT_SOURCE_DIR}/material.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/mesh.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/message.h

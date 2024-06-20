@@ -1,7 +1,7 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
-2024-05-24
+2024-06-12 - 2024
 - ENGINE: Build hardware input system using GLFW
 
 TODO:

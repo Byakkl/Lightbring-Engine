@@ -8,6 +8,7 @@
 #include "fileio/import_obj.h"
 #include "primitives.h"
 #include "rendererData.h"
+#include "input_internal.h"
 
 #ifdef RENDERER_VULKAN
 #include "renderer/vulkan/sys_vulkan.h"
@@ -39,6 +40,8 @@ bool LightbringEngine::start(){
         pImpl->initializeWindow(800,600);
         //Initialize the engine's renderer
         pImpl->renderer->initialize(pImpl->window, 800, 600, std::ref(pImpl->windowResizedEvent));
+        //Initialize input system
+        pImpl->initializeInput(pImpl->window);
     } catch (const std::exception& e){
         std::cerr << e.what() << std::endl;
         shutdown();
@@ -345,6 +348,13 @@ void LightbringEngine::LightbringEngineImpl::initializeWindow(const int a_width,
         windowHeight = a_height;
         //Invoke the window resize event now that the window is created. There may be no listeners at this time but it's consistent at least
         windowResizedEvent.Invoke(windowWidth, windowHeight);
+}
+
+void LightbringEngine::LightbringEngineImpl::initializeInput(GLFWwindow* a_window){
+    if(input == nullptr)
+        input = new Input_Internal();
+
+    input->initialize(a_window);
 }
 
 void LightbringEngine::LightbringEngineImpl::framebufferResizeCallback(GLFWwindow* a_window, int a_width, int a_height){
