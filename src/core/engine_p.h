@@ -11,6 +11,7 @@
 #include "material.h"
 #include "mesh.h"
 #include "texture.h"
+#include "input_internal.h"
 
 class LightbringEngine::LightbringEngineImpl{
 public:
@@ -44,8 +45,6 @@ public:
     std::vector<Scene*> scenes;
     //Pointer to the active scene
     Scene* activeScene;
-    //List of all created objects
-    std::vector<Object*> objects;
     //List of all created materials
     std::vector<Material*> materials;
     //List of all created cameras

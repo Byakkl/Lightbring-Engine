@@ -19,7 +19,7 @@ add_compile_definitions(VK_LOADER_DEBUG=all)
 option(USE_VULKAN "Enable Vulkan Renderer" ON)
 
 #Get a list of the public header files
-file(GLOB ENGINE_HEADERS include/*.h)
+file(GLOB ENGINE_HEADERS include/*/*.h)
 
 #Add a library for the engine
 add_library(LightbringEngine SHARED
@@ -38,6 +38,8 @@ set_target_properties(LightbringEngine PROPERTIES
 
 target_include_directories(LightbringEngine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ECS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ECS/Components
 )
 
 if(USE_VULKAN)
@@ -48,6 +50,7 @@ endif()
 
 #Add the Core directory
 add_subdirectory("src/core" core)
+add_subdirectory("src/core/ECS" ECS)
 #Add the FileIO directory
 add_subdirectory("src/fileio" fileio)
 #Add the Vulkan renderer directory

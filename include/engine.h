@@ -3,7 +3,7 @@
 #include <memory>
 #include "renderer.h"
 #include "scene.h"
-#include "camera.h"
+#include "comp_camera.h"
 #include "material.h"
 #include "mesh.h"
 #include "texture.h"
@@ -51,10 +51,6 @@ public:
     /// @brief Creates an empty scene
     /// @return Returns a pointer to the scene instance
     Scene* createScene();
-
-    /// @brief Creates an empty object
-    /// @return Returns a pointer to the object instance
-    Object* createObject();
 
     /// @brief Sets the active scene
     /// @param scene Pointer to the scene to be made active

@@ -1,10 +1,12 @@
 #pragma once
 
 #include <memory>
-#include "object.h"
+#include <glm/glm.hpp>
+#include "component.h"
+#include "comp_transform.h"
 #include "texture.h"
 
-class Camera : public Object{    
+class Camera : public ECS::Components::ComponentBase{    
 public:
     Camera();
 
@@ -67,8 +69,9 @@ public:
     glm::mat4 getLookAtMatrix(glm::vec3, glm::vec3);
 
     /// @brief Returns a view matrix for the camera
+    /// @param transform Weak pointer to a possible Transform component used if pointer is not expired
     /// @return 
-    glm::mat4 getViewMatrix();
+    glm::mat4 getViewMatrix(std::weak_ptr<ECS::Components::Transform>);
 
     /// @brief Returns a perspective matrix for the camera
     /// @return 

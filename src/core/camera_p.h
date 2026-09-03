@@ -1,8 +1,7 @@
 #pragma once
 
-#include "camera.h"
 #include <glm/glm.hpp>
-#include "object_p.h"
+#include "comp_camera.h"
 #include "texture.h"
 
 class Camera::CameraImpl{
@@ -84,7 +83,7 @@ public:
 
     /// @brief Returns a view matrix for the camera
     /// @return 
-    glm::mat4 getViewMatrix(const Transform*);
+    glm::mat4 getViewMatrix(std::weak_ptr<ECS::Components::Transform>);
 
     /// @brief Returns a perspective matrix for the camera
     /// @return 

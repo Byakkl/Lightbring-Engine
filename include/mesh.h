@@ -6,7 +6,7 @@
 #include "component.h"
 
 class RendererData;
-class Mesh : public Component{
+class Mesh : public ECS::Components::ComponentBase{
 public:
     std::unique_ptr<RendererData> pRendererData;
 

@@ -3,8 +3,7 @@
 #include <optional>
 #include "event.h"
 #include "mesh.h"
-#include "camera.h"
-#include "object.h"
+#include "comp_camera.h"
 
 class GLFWwindow;
 

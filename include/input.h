@@ -2,6 +2,9 @@
 
 #include<memory>
 
+class BindingSet;
+class Binding;
+
 class Input{
 public:
     Input();

@@ -1,5 +1,5 @@
-#include "../../include/material.h"
+#include "material.h"
 
 Material::Material(){
-    type = ComponentType::COMP_MATERIAL;
+    //type = ComponentType::COMP_MATERIAL;
 }

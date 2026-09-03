@@ -1,10 +1,16 @@
 This is a frequently updated file to track progress and plan changes
 
 INPROGRESS:
+2026-09-01 -
+- ENGINE: Update architecture to use ECS instead of Object
+
+
+ONHOLD:
 2024-06-12 - 2024
 - ENGINE: Build hardware input system using GLFW
 
 TODO:
+- CAMERA: Add handling for transform components in calculating matrices
 - ENGINE: Clarity of degrees/radians for rotation and transform
 - ENGINE: Define standards for method parameter naming
 - VULKAN: Decide on a better method for storing and referencing queue family indices than a vector (requestQueueFamilies, queueFamilies). 
