@@ -13,4 +13,6 @@ public:
 
     Texture();
     Texture(int, int, int);
+
+    size_t resourceID;
 };

@@ -6,8 +6,8 @@
 #include <tiny_obj_loader.h>
 #include "mesh.h"
 
-static Mesh* importModelFile(const char* modelPath){
-    Mesh* mesh = new Mesh();
+static Mesh importModelFile(const char* modelPath){
+    Mesh mesh = Mesh();
 
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -36,8 +36,8 @@ static Mesh* importModelFile(const char* modelPath){
 
             vertex.color = {1.0f, 1.0f, 1.0f};
 
-            mesh->vertices.push_back(vertex);
-            mesh->indices.push_back(mesh->indices.size());
+            mesh.vertices.push_back(vertex);
+            mesh.indices.push_back(mesh.indices.size());
         }
     }
 

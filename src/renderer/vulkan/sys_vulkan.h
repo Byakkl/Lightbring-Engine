@@ -14,21 +14,21 @@ public:
     /// @brief Implementation of Renderer pure virtual method
     void initialize(GLFWwindow*, int, int, std::reference_wrapper<Event<int,int>>) override;
 
-    bool render(Camera*, std::vector<Object*>) override;
+    bool render(Comp_Camera*, std::vector<Object*>) override;
 
     void cleanup() override;
 
-    void createTexture(Texture*) override;
+    void createTexture(Texture&) override;
 
-    void unloadTexture(Texture*) override;
+    void unloadTexture(Texture&) override;
 
-    void uploadMesh(Mesh*) override;
+    void uploadMesh(Mesh&) override;
 
-    void unloadMesh(Mesh*) override;
+    void unloadMesh(Mesh&) override;
 
-    void registerCamera(Camera*) override;
+    void registerCamera(Comp_Camera*) override;
 
-    void unregisterCamera(Camera*) override;
+    void unregisterCamera(Comp_Camera*) override;
 
 private:
     //Constant to define concurrent frame processing
@@ -211,10 +211,10 @@ private:
     void createBuffer(VkDeviceSize, VkBufferUsageFlags, VkMemoryPropertyFlags, VkBuffer&, VkDeviceMemory&);
 
     /// @brief Creates a vertex buffer for use in shaders
-    void createVertexBuffer(const Mesh*, MeshData*);
+    void createVertexBuffer(const Mesh&, MeshData*);
 
     /// @brief Creats an index buffer for use in shaders
-    void createIndexBuffer(const Mesh*, MeshData*);
+    void createIndexBuffer(const Mesh&, MeshData*);
 
     /// @brief Copies data from one buffer to another
     /// @param srcBuffer Source data buffer
@@ -298,12 +298,12 @@ private:
     /// @param descriptorSets The vector to resize and populate the new set handles into
     void createDescriptorSets(VkDescriptorPool, uint32_t, std::vector<VkDescriptorSetLayout>, std::vector<VkDescriptorSet>&);
 
-    void updateDescriptorSet(std::vector<VkWriteDescriptorSet>&, VkDescriptorSet&, Object*);
+    void updateDescriptorSet(std::vector<VkWriteDescriptorSet>&, VkDescriptorSet&, const RenderDescription&);
 
     VkWriteDescriptorSet createDescriptorWrite(VkDescriptorSet&, int, int, VkDescriptorType, int, VkDescriptorBufferInfo* = nullptr, VkDescriptorImageInfo* = nullptr, VkBufferView* = nullptr);
 
     /// @brief Creates a texture from an image source
-    void createTextureImage(const Texture*, ImageData*);
+    void createTextureImage(const Texture&, ImageData*);
 
     /// @brief Creates a Vulkan image
     /// @param width Width in pixels

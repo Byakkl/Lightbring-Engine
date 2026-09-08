@@ -1,28 +1,16 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include "camera.h"
+#include <optional>
+#include <memory>
+#include "transform.h"
 #include "texture.h"
 
-class Camera::CameraImpl{
-    //Defines if camera is actively rendering each frame
-    bool isRendering;
-
-    float frameOfView;
-    float aspectRatio;
-    float nearClippingDist;
-    float farClippingDist;
-    //Positional offset of the camera from the object transform
-    glm::vec3 offset;
-    //Toggle to flip the Y value of the projection matrix
-    bool flipProjectionY;
-
-    //Texture to be rendered to
-    Texture* renderTarget;
-    
+class Camera
+{
 public:
-    CameraImpl();
-
+    Camera();
+    
     /// @brief Returns the frame of view of the camera
     /// @return 
     float getFoV();
@@ -82,6 +70,7 @@ public:
     glm::mat4 getLookAtMatrix(glm::vec3, glm::vec3);
 
     /// @brief Returns a view matrix for the camera
+    /// @param transform Weak pointer to a possible Transform component used if pointer is not expired
     /// @return 
     glm::mat4 getViewMatrix(const std::optional<Transform>);
 
@@ -92,4 +81,8 @@ public:
     /// @brief Sets the texture the camera will render to
     /// @param texture The target texture
     void setRenderTexture(Texture*);
+
+private:
+    class CameraImpl;
+    std::unique_ptr<CameraImpl> pImpl;
 };

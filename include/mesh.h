@@ -6,14 +6,16 @@
 #include "component.h"
 
 class RendererData;
-class Mesh : public ECS::Components::ComponentBase{
+class Mesh {
 public:
+    //Container of Renderer specific data
     std::unique_ptr<RendererData> pRendererData;
 
     std::vector<Vertex> vertices;
     std::vector<uint16_t> indices;
     
     Mesh();
-    Mesh(const Mesh&);
     Mesh(std::vector<Vertex>, std::vector<uint16_t>, unsigned char*);
+
+    size_t resourceID;
 };

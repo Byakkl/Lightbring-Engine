@@ -9,6 +9,7 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/scene.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/texture.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/transform.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/resources.cpp
 )
 
 target_sources(LightbringEngine PRIVATE

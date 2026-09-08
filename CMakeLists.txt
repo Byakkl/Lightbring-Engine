@@ -40,6 +40,7 @@ target_include_directories(LightbringEngine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ECS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/ECS/Components
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/ECS/Systems
 )
 
 if(USE_VULKAN)

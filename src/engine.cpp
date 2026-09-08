@@ -93,21 +93,20 @@ bool LightbringEngine::update(){
     return true;
 }
 
+template<typename T>
+void LightbringEngine::LightbringEngineImpl::releaseRendererData(T& data)
+{
+    if constexpr(std::is_same<T, Texture>::value)
+        renderer->unloadTexture(data);
+    else if constexpr(std::is_same<T, Mesh>::value)
+        renderer->unloadMesh(data);
+}
+
 void LightbringEngine::shutdown(){
     //Turn off the running flag
     pImpl->isRunning = false;
 
-    //Clean up any image data
-    for(auto texture : pImpl->textures){
-        pImpl->renderer->unloadTexture(texture);
-        delete texture;
-    }
-
-    //Clean up any model data
-    for(auto mesh : pImpl->meshes){
-        pImpl->renderer->unloadMesh(mesh);
-        delete mesh;
-    }
+    pImpl->resources.Shutdown();
 
     //Clean up any cameras
     for(auto camera : pImpl->cameras){
@@ -126,52 +125,39 @@ void LightbringEngine::shutdown(){
     }
 }
 
-Texture* LightbringEngine::importImage(const char* filePath, bool pushToGPU){
-    Texture* importedData;
-    try{
-        //Import the image data from the file
-        importedData = importImageFile(filePath);
-
+std::optional<Handle<Texture>> LightbringEngine::importImage(const char* filePath, bool pushToGPU)
+{
+    std::optional<Handle<Texture>> handle = pImpl->resources.ImportTexture(filePath);
+   
+    if(handle.has_value() && pushToGPU)
+    {
         //If the data is to be uploaded immediately; do so and clear the CPU data
-        if(pushToGPU){
-            pImpl->renderer->createTexture(importedData);
-            importedData->pRendererData->releaseRawData();
-        }
+        Texture& texture = pImpl->resources.GetResource<Texture>(handle.value());
+        pImpl->renderer->createTexture(texture);
+        texture.pRendererData->releaseRawData();
+    }
 
-        //Add the data structure to the engine's tracker
-        pImpl->textures.push_back(importedData);
-    }
-    catch(const std::exception& e){
-        std::cerr << e.what() << std::endl;
-        return nullptr;
-    }
-    return importedData;
+    return handle;
 }
 
-Mesh* LightbringEngine::importMesh(const char* filePath, bool pushToGPU){
-    Mesh* importedData;
-    try{
-        //Import the model data from the file
-        importedData = importModelFile(filePath);
-
+std::optional<Handle<Mesh>> LightbringEngine::importMesh(const char* filePath, bool pushToGPU)
+{
+    std::optional<Handle<Mesh>> handle = pImpl->resources.ImportMesh(filePath);
+    
+    if(handle.has_value() && pushToGPU)
+    {
         //If the data is to be uploaded immediately; do so and clear the CPU data
-        if(pushToGPU){
-            pImpl->renderer->uploadMesh(importedData);
-            importedData->pRendererData->releaseRawData();
-        }
-
-        //Add the data structure to the engine's tracker
-        pImpl->meshes.push_back(importedData);
-    } catch(const std::exception& e){
-        std::cerr << e.what() << std::endl;
-        return nullptr;
+        Mesh& mesh = pImpl->resources.GetResource<Mesh>(handle.value());
+        pImpl->renderer->uploadMesh(mesh);
+        mesh.pRendererData->releaseRawData();
     }
-    return importedData;
+
+    return handle;
 }
 
-bool LightbringEngine::uploadImage(Texture* imageData){
+bool LightbringEngine::uploadImage(Texture& imageData){
     //If this image's data has already been registered with the renderer don't upload it again
-    if(imageData->pRendererData->rendererData != nullptr)
+    if(imageData.pRendererData->rendererData != nullptr)
         return true;
 
     try{
@@ -183,9 +169,9 @@ bool LightbringEngine::uploadImage(Texture* imageData){
     return true;
 }
 
-bool LightbringEngine::uploadMesh(Mesh* meshData){
+bool LightbringEngine::uploadMesh(Mesh& meshData){
     //If this mesh's data has already been registered with the renderer don't upload it again
-    if(meshData->pRendererData != nullptr)
+    if(meshData.pRendererData != nullptr)
         return true;
 
     try{
@@ -270,9 +256,9 @@ Material* LightbringEngine::createMaterial(Texture* albedo){
     return material;
 }
 
-Camera* LightbringEngine::createCamera(){
+Comp_Camera* LightbringEngine::createCamera(){
     //Create the camera instance
-    Camera* camera = new Camera();
+    Comp_Camera* camera = new Comp_Camera();
 
     //Initialize the aspect ratio
     float ratio = (float)(pImpl->windowWidth) / (float)(pImpl->windowHeight);
@@ -285,7 +271,7 @@ Camera* LightbringEngine::createCamera(){
     return camera;
 }
 
-void LightbringEngine::setCameraActive(Camera* camera, bool active){
+void LightbringEngine::setCameraActive(Comp_Camera* camera, bool active){
     //Return if call is redundant
     if(camera->getIsRendering() == active)
         return;
@@ -313,7 +299,7 @@ LightbringEngine::LightbringEngineImpl::LightbringEngineImpl(){
     #ifdef RENDERER_VULKAN
     renderer = new VulkanRenderer();
     #endif
-    
+    resources.AssignRendererRef(renderer);
     activeScene = nullptr;
 }
 
@@ -330,7 +316,7 @@ LightbringEngine::LightbringEngineImpl::~LightbringEngineImpl(){
 }
 
 void LightbringEngine::LightbringEngineImpl::initializeWindow(const int a_width, const int a_height){
-            //Initialize GLFW
+        //Initialize GLFW
         glfwInit();
         //Disable creation of OpenGL context
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);

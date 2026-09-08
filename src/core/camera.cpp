@@ -114,16 +114,16 @@ glm::mat4 Camera::CameraImpl::getLookAtMatrix(glm::vec3 cameraOrigin, glm::vec3 
     return glm::lookAt(cameraOrigin + offset, lookPosition, glm::vec3(0.0f, 0.0f, 1.0f));
 }
 
-glm::mat4 Camera::getViewMatrix(std::weak_ptr<ECS::Components::Transform> transform){
-    return pImpl->getViewMatrix(transform);
+glm::mat4 Camera::getViewMatrix(const std::optional<Transform> opt_transform){
+    return pImpl->getViewMatrix(opt_transform);
 }
-glm::mat4 Camera::CameraImpl::getViewMatrix(std::weak_ptr<ECS::Components::Transform> transform){
+glm::mat4 Camera::CameraImpl::getViewMatrix(const std::optional<Transform> opt_transform){
     glm::mat4 output = glm::mat4(1.0f);
-    glm::vec3 position = transform.expired() ? offset : transform.lock()->position;
+    glm::vec3 position = opt_transform ? offset : opt_transform->position;
     output = glm::translate(output, position);
     
-    if(!transform.expired())
-        output *= transform.lock()->getRotationMatrix();
+    if(opt_transform)
+        output *= opt_transform->getRotationMatrix();
 
     output = glm::inverse(output);
     return output;

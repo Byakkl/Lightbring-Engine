@@ -3,6 +3,8 @@ This is a frequently updated file to track progress and plan changes
 INPROGRESS:
 2026-09-01 -
 - ENGINE: Update architecture to use ECS instead of Object
+2026-09-03 - 
+- ENGINE: Refactor renderer.h to be a System that operates on Archetypes with Camera components
 
 
 ONHOLD:
@@ -10,7 +12,6 @@ ONHOLD:
 - ENGINE: Build hardware input system using GLFW
 
 TODO:
-- CAMERA: Add handling for transform components in calculating matrices
 - ENGINE: Clarity of degrees/radians for rotation and transform
 - ENGINE: Define standards for method parameter naming
 - VULKAN: Decide on a better method for storing and referencing queue family indices than a vector (requestQueueFamilies, queueFamilies). 
@@ -42,6 +43,8 @@ TODO:
 - ENGINE: Validate engine is threadsafe
 
 DONE:
+2026-09-03 - 2026-09-03
+- CAMERA: Add handling for transform components in calculating matrices
 2024-05-22 - 2024-05-24
 - ENGINE: Move GLFW initialization out of renderer and do it in the engine instead
 - ENGINE: Create new bindings for GLFW events (pollEvents and callbacks) at the engine level

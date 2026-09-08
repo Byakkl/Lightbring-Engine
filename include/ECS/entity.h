@@ -9,7 +9,7 @@ namespace ECS
     class Entity
     {
     public:
-        void AddComponent(const ComponentBase& a_comp);
+        void AddComponent(const ECS::Components::ComponentBase& a_comp);
         void RemoveComponent(const std::type_index a_compType);
     private:
         class EntityImpl;

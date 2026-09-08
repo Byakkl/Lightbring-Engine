@@ -12,6 +12,7 @@
 #include "mesh.h"
 #include "texture.h"
 #include "input_internal.h"
+#include "resources.h"
 
 class LightbringEngine::LightbringEngineImpl{
 public:
@@ -37,10 +38,8 @@ public:
     //Input system instance
     Input_Internal* input;
 
-    //List of all image handles
-    std::vector<Texture*> textures;
-    //List of all mesh handles
-    std::vector<Mesh*> meshes;
+    ResourceManager resources;
+
     //List of all loaded scenes
     std::vector<Scene*> scenes;
     //Pointer to the active scene
@@ -48,7 +47,7 @@ public:
     //List of all created materials
     std::vector<Material*> materials;
     //List of all created cameras
-    std::vector<Camera*> cameras;
+    std::vector<Comp_Camera*> cameras;
 
     LightbringEngineImpl();
     ~LightbringEngineImpl();
@@ -61,4 +60,7 @@ public:
     /// @param width The new width of the window
     /// @param height The new height of the window
     static void framebufferResizeCallback(GLFWwindow*, int, int);
+
+    template<typename T>
+    void releaseRendererData(T&);
 };

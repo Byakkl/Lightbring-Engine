@@ -30,7 +30,7 @@ void VulkanRenderer::initialize(GLFWwindow* a_window, int a_width, int a_height,
     initVulkan(a_window);
 }
 
-bool VulkanRenderer::render(Camera* camera, std::vector<Object*> objects){
+bool VulkanRenderer::render(Camera* camera, std::vector<RenderDescription> inputs){
     //Wait for the presentation fence for the frame to complete
     //vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
     vkWaitForFences(device, 1, &renderFence, VK_TRUE, UINT64_MAX);
@@ -51,8 +51,8 @@ bool VulkanRenderer::render(Camera* camera, std::vector<Object*> objects){
     //Get camera's view and projection matrices and premultiply them
     glm::mat4 viewProj = camera->getPerspectiveMatrix() * camera->getViewMatrix();
 
-    size_t arrSize = objects.size();
-    Object* pObjectSubset;
+    size_t arrSize = inputs.size();
+    RenderDescription pObjectSubset;
     std::vector<VkWriteDescriptorSet> descriptorWrites;
     VkSemaphore signalSemaphores[] = {renderFinishedSemaphores[currentFrame]};
     VkSemaphore waitSemaphores[] = {imageAvailableSemaphores[currentFrame]};
@@ -64,7 +64,7 @@ bool VulkanRenderer::render(Camera* camera, std::vector<Object*> objects){
         descriptorWrites.clear();
 
         //Get object subset array using array pointer
-        pObjectSubset = objects[i];
+        pObjectSubset = inputs[i];
 
         //Determine remaining number of objects to account for final set when not a multiple of MAX_OBJECT_DECRIPTOR_SETS
         int objectCount = arrSize - i;
@@ -194,7 +194,7 @@ void VulkanRenderer::cleanup(){
     vkDestroyInstance(instance, nullptr);
 }
 
-void VulkanRenderer::createTexture(Texture* image){
+void VulkanRenderer::createTexture(Texture& image){
     //Create the container for the Vulkan handles
     ImageData* imageData = new ImageData();
     //Create the Vulkan image
@@ -203,15 +203,15 @@ void VulkanRenderer::createTexture(Texture* image){
     createImageView(imageData, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 
     //Pass the Vulkan handle container to the image object
-    image->pRendererData->rendererData = imageData;
+    image.pRendererData->rendererData = imageData;
 }
 
-void VulkanRenderer::unloadTexture(Texture* image){
-    if(image->pRendererData->rendererData == nullptr)
+void VulkanRenderer::unloadTexture(Texture& image){
+    if(image.pRendererData->rendererData == nullptr)
         return;
 
     //Cast to the Vulkan data container 
-    ImageData* imageData = static_cast<ImageData*>(image->pRendererData->rendererData);
+    ImageData* imageData = static_cast<ImageData*>(image.pRendererData->rendererData);
     //Invoke the cleanup method to release the memory
     imageData->cleanup(device);
 
@@ -219,11 +219,11 @@ void VulkanRenderer::unloadTexture(Texture* image){
     delete imageData;
 
     //Null out the pointer as all data is cleaned
-    image->pRendererData->rendererData = nullptr;
+    image.pRendererData->rendererData = nullptr;
 }
 
-void VulkanRenderer::uploadMesh(Mesh* mesh){
-    //Create the container for the Vulkan handles
+//Create the container for the Vulkan handles
+void VulkanRenderer::uploadMesh(Mesh& mesh){
     MeshData* meshData = new MeshData();
     //Create a vertex buffer
     createVertexBuffer(mesh, meshData);
@@ -231,7 +231,7 @@ void VulkanRenderer::uploadMesh(Mesh* mesh){
     createIndexBuffer(mesh, meshData);
 
     //Pass the Vulkan handle container to the mesh object
-    mesh->pRendererData->rendererData = meshData;
+    mesh.pRendererData->rendererData = meshData;
 }
 
 void VulkanRenderer::unloadMesh(Mesh* mesh){
@@ -736,9 +736,9 @@ void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat forma
     vkBindImageMemory(device, imageData->image, imageData->memory, 0);
 }
 
-void VulkanRenderer::createTextureImage(const Texture* texture, ImageData* output){
+void VulkanRenderer::createTextureImage(const Texture& texture, ImageData* output){
     //Determine the size of the image in bytes
-    VkDeviceSize imageSize = texture->width * texture->height * 4;
+    VkDeviceSize imageSize = texture.width * texture.height * 4;
 
     if(imageSize == 0)
         throw std::runtime_error("Faield to create texture. Size is 0");
@@ -753,15 +753,15 @@ void VulkanRenderer::createTextureImage(const Texture* texture, ImageData* outpu
         stagingBufferMemory);
     
     //Transfer the image data into the staging buffer if any is present
-    if(texture->pRendererData->rawData != nullptr){
+    if(texture.pRendererData->rawData != nullptr){
         void* data;
         vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-        memcpy(data, texture->pRendererData->rawData, static_cast<size_t>(imageSize));
+        memcpy(data, texture.pRendererData->rawData, static_cast<size_t>(imageSize));
         vkUnmapMemory(device, stagingBufferMemory);
     }
 
-    createImage(texture->width,
-    texture->height,
+    createImage(texture.width,
+    texture.height,
     VK_FORMAT_R8G8B8A8_SRGB,
     VK_IMAGE_TILING_OPTIMAL,
     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -772,7 +772,7 @@ void VulkanRenderer::createTextureImage(const Texture* texture, ImageData* outpu
     transitionImageLayout(output->image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     //Copy the staging buffer data into the image
-    copyBufferToImage(stagingBuffer, output->image, static_cast<uint32_t>(texture->width), static_cast<uint32_t>(texture->height));
+    copyBufferToImage(stagingBuffer, output->image, static_cast<uint32_t>(texture.width), static_cast<uint32_t>(texture->height));
 
     //Transition the image to a shader read only layout
     transitionImageLayout(output->image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -782,7 +782,7 @@ void VulkanRenderer::createTextureImage(const Texture* texture, ImageData* outpu
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void VulkanRenderer::updateDescriptorSet(std::vector<VkWriteDescriptorSet>& descriptorWrites, VkDescriptorSet& descriptorSet, Object* object){
+void VulkanRenderer::updateDescriptorSet(std::vector<VkWriteDescriptorSet>& descriptorWrites, VkDescriptorSet& descriptorSet, const RenderDescription desc){
     //Create descriptor write for material
     Component* matComp = object->getComponent(ComponentType::COMP_MATERIAL);
     if(matComp){
@@ -923,7 +923,7 @@ void VulkanRenderer::createSyncObjects(){
         throw std::runtime_error("Failed to create render batch fence");
 }
 
-void VulkanRenderer::recordObjectRenderCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, glm::mat4 viewProjMatrix, Object* objects, int objectCount){
+void VulkanRenderer::recordObjectRenderCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, glm::mat4 viewProjMatrix, const RenderDescription& objects, int objectCount){
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     //Defines out the command buffer is to be used
@@ -1666,9 +1666,9 @@ void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, V
     vkBindBufferMemory(device, buffer, bufferMemory, 0);
 }
 
-void VulkanRenderer::createVertexBuffer(const Mesh* meshData, MeshData* output){
+void VulkanRenderer::createVertexBuffer(const Mesh& meshData, MeshData* output){
     //Determine the size of the buffer
-    VkDeviceSize bufferSize = sizeof(meshData->vertices[0]) * meshData->vertices.size();
+    VkDeviceSize bufferSize = sizeof(meshData.vertices[0]) * meshData.vertices.size();
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -1683,7 +1683,7 @@ void VulkanRenderer::createVertexBuffer(const Mesh* meshData, MeshData* output){
     //Map the buffer memory into CPU accessible memory
     vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
     //Copy the vertex data into the buffer
-    memcpy(data, meshData->vertices.data(), (size_t) bufferSize);
+    memcpy(data, meshData.vertices.data(), (size_t) bufferSize);
     //Unmap the memory as we no longer need access
     vkUnmapMemory(device, stagingBufferMemory);
 
@@ -1709,9 +1709,9 @@ void VulkanRenderer::createVertexBuffer(const Mesh* meshData, MeshData* output){
     vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
-void VulkanRenderer::createIndexBuffer(const Mesh* meshData, MeshData* output){
+void VulkanRenderer::createIndexBuffer(const Mesh& meshData, MeshData* output){
     //Determine the size of the buffer
-    VkDeviceSize bufferSize = sizeof(meshData->indices[0]) * meshData->indices.size();
+    VkDeviceSize bufferSize = sizeof(meshData.indices[0]) * meshData.indices.size();
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
@@ -1727,7 +1727,7 @@ void VulkanRenderer::createIndexBuffer(const Mesh* meshData, MeshData* output){
     //Map the memory of the staging buffer to the void pointer
     vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
     //Copy the data into the buffer the pointer indicates
-    memcpy(data, meshData->indices.data(), (size_t) bufferSize);
+    memcpy(data, meshData.indices.data(), (size_t) bufferSize);
     //Unmap the staging buffer
     vkUnmapMemory(device, stagingBufferMemory);
 
