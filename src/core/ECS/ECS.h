@@ -4,54 +4,54 @@
 #include<typeindex>
 #include<unordered_map>
 
-struct ComponentInfo
-{
-    size_t id;
-    size_t componentSize;
+// struct ComponentInfo
+// {
+//     size_t id;
+//     size_t componentSize;
 
-    ComponentInfo()
-    {
-        id = {};
-        componentSize = {};
-    }
+//     ComponentInfo()
+//     {
+//         id = {};
+//         componentSize = {};
+//     }
     
-    ComponentInfo(size_t a_id, size_t a_compSize)
-    {
-        id = a_id;
-        componentSize = a_compSize;
-    }
-};
+//     ComponentInfo(size_t a_id, size_t a_compSize)
+//     {
+//         id = a_id;
+//         componentSize = a_compSize;
+//     }
+// };
 
-struct ComponentData
-{
-    //Identifier of what type of component this is
-    ComponentInfo componentInfo;
-    //Pointer to the data buffer
-    void* data;
-    //Size of a data element
-    size_t elementSize;
-    //Current number of data elements
-    size_t elementCount;
-};
+// struct ComponentData
+// {
+//     //Identifier of what type of component this is
+//     ComponentInfo componentInfo;
+//     //Pointer to the data buffer
+//     void* data;
+//     //Size of a data element
+//     size_t elementSize;
+//     //Current number of data elements
+//     size_t elementCount;
+// };
 
-class Archetype
-{
-public:
-    size_t archetypeID;
-    //Const container of the ComponentType from each of the ComponentData entries in 'components'
-    const std::vector<ComponentInfo> GetArchetypeComponentInfo();// => componentInfo;
-    Archetype()
-    {
-        archetypeID = {};
-    }
-    Archetype(size_t a_id)
-    {
-        archetypeID = a_id;
-    }
-private:
-    std::vector<ComponentInfo> componentInfo;
-    std::vector<ComponentData> componentData;
-};
+// class Archetype
+// {
+// public:
+//     size_t archetypeID;
+//     //Const container of the ComponentType from each of the ComponentData entries in 'components'
+//     const std::vector<ComponentInfo> GetArchetypeComponentInfo();// => componentInfo;
+//     Archetype()
+//     {
+//         archetypeID = {};
+//     }
+//     Archetype(size_t a_id)
+//     {
+//         archetypeID = a_id;
+//     }
+// private:
+//     std::vector<ComponentInfo> componentInfo;
+//     std::vector<ComponentData> componentData;
+// };
 
 
 

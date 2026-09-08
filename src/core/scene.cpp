@@ -9,7 +9,7 @@
 //     return true;
 // }
 
-bool Scene::addSceneCamera(Camera* camera){
+bool Scene::addSceneCamera(Comp_Camera* camera){
     for(auto sceneCamera : sceneCameras)
         if(sceneCamera == camera)
             return false;

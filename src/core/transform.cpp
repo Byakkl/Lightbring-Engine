@@ -1,9 +1,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/quaternion.hpp"
-#include "comp_transform.h"
+#include "transform.h"
 
-namespace ECS::Components
-{
+
     Transform::Transform(){
         //type = ComponentType::COMP_TRANSFORM;
     
@@ -46,4 +45,3 @@ namespace ECS::Components
 
         return transformMatrix; 
     }
-}
